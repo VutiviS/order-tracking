@@ -25,6 +25,19 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 os.environ.setdefault("TZ", "Africa/Johannesburg")
+
+# The same database connection the INVENTRA desktop apps use (their built-in public key), so the site works even when
+# SUPABASE_URL / SUPABASE_KEY haven't been set on the host. Settings on the host still win when they are there.
+DEFAULT_SUPABASE_URL = "https://lnimjatrcvpxnumkxqzs.supabase.co"
+DEFAULT_SUPABASE_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaW1qYXRyY3ZweG51bWt4cXpzIiw"
+    "icm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzY2NDYsImV4cCI6MjA3Nzk1MjY0Nn0.P-KgfRbbR1WDXQ31lViUYlHA0NpdCLd9YgUcV2DbmLA"
+)
+for _name, _value in (("SUPABASE_URL", DEFAULT_SUPABASE_URL), ("SUPABASE_KEY", DEFAULT_SUPABASE_KEY)):
+    if not (os.environ.get(_name) or "").strip():
+        os.environ[_name] = _value
+    else:
+        os.environ[_name] = os.environ[_name].strip().strip('"').strip("'")
 if hasattr(time, "tzset"):
     time.tzset()
 
@@ -455,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/track":
             key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
             if not self.ensure():
-                return self._send(503, {"error": "Tracking is being set up. Please try again later."})
+                return self._send(503, {"error": "Tracking is being set up. Please try again later.", "detail": self.startup_error})
             try:
                 return self._send(200, self.tracker.from_link(key))
             except Exception as e:
@@ -487,7 +500,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._send(400, {"error": "Bad request"})
         if not self.ensure():
-            return self._send(503, {"error": "Tracking is being set up. Please try again later."})
+            return self._send(503, {"error": "Tracking is being set up. Please try again later.", "detail": self.startup_error})
         path = self.path.split("?", 1)[0]
         try:
             if path == "/api/lookup":

@@ -252,7 +252,8 @@ async function api(url, body) {
                                        body: JSON.stringify(body)} : {});
   let data = {};
   try { data = await res.json(); } catch (e) {}
-  if (!res.ok) throw new Error(data.error || "Tracking isn't available right now. Please try again.");
+  if (!res.ok) throw new Error((data.error || "Tracking isn't available right now. Please try again.") +
+                                (data.detail ? " (Technical detail for the office: " + data.detail + ")" : ""));
   return data;
 }
 
