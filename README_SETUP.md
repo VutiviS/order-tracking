@@ -31,8 +31,7 @@ From then on:
 
 ## How customers find their order
 - With the link or QR code: nothing to type.
-- Without it: they type the order number and the phone number or e-mail address on their customer record
-  (Sales > Customers). After 8 wrong tries from one place they must wait 15 minutes.
+- Without it: they type their order number. After 8 wrong numbers from one place they must wait 15 minutes.
 
 ## Updating files later
 Upload the changed files to the same repository; the host restarts by itself. `tracking_domain.py` must be the same

@@ -161,12 +161,10 @@
   <section id="find">
     <div class="card">
       <h2>Track your order</h2>
-      <p class="sub">Type your order number and the phone number or e-mail address we have for you.</p>
+      <p class="sub">Type the order number from your quote, invoice or message.</p>
       <form id="form" autocomplete="on">
         <label for="order">Order number</label>
         <input id="order" name="order" inputmode="numeric" autocomplete="off" placeholder="e.g. 261001212803654" required>
-        <label for="contact">Phone number or e-mail</label>
-        <input id="contact" name="contact" autocomplete="tel" placeholder="e.g. 082 123 4567" required>
         <button class="btn" id="go" type="submit">Track my order</button>
         <div class="msg err hidden" id="findErr"></div>
       </form>
@@ -320,7 +318,7 @@ $("form").addEventListener("submit", async ev => {
   const go = $("go");
   go.disabled = true; go.textContent = "Looking…";
   $("findErr").classList.add("hidden");
-  try { render(await api("/api/lookup", {order: $("order").value, contact: $("contact").value})); }
+  try { render(await api("/api/lookup", {order: $("order").value})); }
   catch (e) { $("findErr").textContent = e.message; $("findErr").classList.remove("hidden"); }
   finally { go.disabled = false; go.textContent = "Track my order"; }
 });

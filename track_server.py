@@ -1,7 +1,7 @@
 """INVENTRA order tracking site (runs on the internet, for the business's customers).
 
 A customer opens the tracking link the business sent them (…/o/<order>-<code>), or types their order number with the
-phone number or e-mail address the business has for them, and sees where the order is: received, being prepared,
+order number, and sees where the order is: received, being prepared,
 dispatched, on the way (including the border for cross-border orders) and delivered. They can confirm they received it
 and leave a short rating. Nothing about prices or other customers is shown.
 
@@ -126,23 +126,16 @@ class Tracker:
             self.failures.setdefault(ip, []).append(time.time())
 
     def lookup(self, body: dict, ip: str) -> dict:
-        """Order number + the phone number or e-mail on the customer's record."""
+        """The order number is enough (wrong numbers count towards a pause, so numbers can't be guessed in bulk)."""
         self._limit(ip)
         oid = TD.clean_order_id(body.get("order"))
-        contact = str(body.get("contact") or "").strip()
-        if not oid or not contact:
-            raise TrackError("Type your order number and your phone number or e-mail address.")
-        wrong = TrackError("That order number and phone number / e-mail don't match our records. Check both, or use "
-                           "the tracking link we sent you.", 404)
+        if not oid:
+            raise TrackError("Type your order number.")
         try:
-            order = self.order(oid)[0]
+            self.order(oid)
         except TrackError:
             self._failed(ip)
-            raise wrong
-        customers = self._rows("customers", "company_name", order.get("client_name") or "")
-        if not any(TD.contact_matches(c, contact) for c in customers):
-            self._failed(ip)
-            raise wrong
+            raise TrackError("We can't find that order number. Check it on your quote, invoice or message.", 404)
         return self.view(oid)
 
     def confirm(self, body: dict, ip: str) -> dict:

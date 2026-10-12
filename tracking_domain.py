@@ -11,8 +11,7 @@ Where an order is comes from what the business already records:
   delivered    staff recorded the delivery, the customer confirmed it, or the shipment was delivered
 
 Each order has a secret tracking code made from its number (HMAC with the database key), so a tracking link can't be
-guessed from an order number alone. Customers without the link can look an order up with its number plus the phone
-number or e-mail address the business has for them."""
+guessed from an order number alone. Customers without the link can look an order up with its order number."""
 
 import base64
 import hashlib
