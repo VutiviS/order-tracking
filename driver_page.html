@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Deliveries">
+<meta name="robots" content="noindex">
+<title>Deliveries · {{COMPANY}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --amber:#B45309; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A;
+          --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; }
+  }
+  * { box-sizing:border-box; border-radius:0; -webkit-tap-highlight-color:transparent; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); min-height:100vh; }
+  button, input, textarea { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+  .bar { background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 10px) 16px 10px; }
+  .bar .in { max-width:560px; margin:0 auto; display:flex; align-items:center; gap:10px; }
+  .bar img { height:34px; }
+  .bar .t { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar button { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 10px; font-size:13px; }
+  main { max-width:560px; margin:0 auto; padding:14px 14px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:16px; margin-bottom:12px; }
+  h2 { margin:0 0 6px; font-size:18px; } h3 { margin:0 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 10px; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; }
+  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; }
+  textarea { min-height:64px; }
+  .btn { display:block; width:100%; border:0; background:var(--navy); color:#fff; font-weight:600; padding:15px; margin-top:12px;
+         font-size:16px; cursor:pointer; text-align:center; text-decoration:none; }
+  .btn.green { background:var(--green); } .btn.red { background:var(--red); } .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn[disabled] { opacity:.6; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .row2 .btn { margin-top:8px; }
+  .msg { padding:10px 12px; margin-top:10px; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
+  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .stop { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-top:1px solid var(--line); cursor:pointer; }
+  .stop:first-of-type { border-top:0; }
+  .num { width:30px; height:30px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--soft); font-weight:700; }
+  .stop.done .num { background:var(--green); color:#fff; } .stop.bad .num { background:var(--red); color:#fff; }
+  .stop .who { font-weight:600; } .stop .where { font-size:13px; color:var(--muted); }
+  .seg { display:grid; grid-template-columns:repeat(4, 1fr); border:1px solid var(--line); }
+  .seg button { border:0; border-left:1px solid var(--line); background:var(--card); padding:12px 4px; font-weight:600; font-size:14px; }
+  .seg button:first-child { border-left:0; } .seg button.on { background:var(--navy); color:#fff; }
+  .item { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
+  .item:first-child { border-top:0; } .item input { width:84px; padding:8px; text-align:right; }
+  canvas.sig { width:100%; height:170px; background:#fff; border:1px solid var(--line); touch-action:none; display:block; }
+  .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; background:var(--soft); }
+  .photo { max-width:100%; max-height:180px; display:block; margin-top:8px; }
+  @media (max-width:360px) { main { padding:10px 10px 30px; } .seg button { font-size:12px; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in">
+  <img src="/logo.png" alt="" onerror="this.remove()">
+  <div class="t" id="title">Deliveries</div>
+  <button id="back" class="hidden" type="button">Back</button>
+  <button id="out" class="hidden" type="button">Sign out</button>
+</div></header>
+<main>
+  <section id="login">
+    <div class="card">
+      <h2>Driver sign-in</h2>
+      <p class="sub">Your name and the PIN the office gave you.</p>
+      <label for="name">Your name</label><input id="name" autocomplete="name">
+      <label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
+      <button class="btn" id="go" type="button">Sign in</button>
+      <div class="msg err hidden" id="loginErr"></div>
+    </div>
+  </section>
+
+  <section id="trips" class="hidden"></section>
+
+  <section id="trip" class="hidden">
+    <div class="card"><h2 id="tripTitle"></h2><p class="sub" id="tripSub"></p>
+      <label for="km" id="kmLabel">Odometer (km)</label><input id="km" inputmode="numeric">
+      <button class="btn" id="tripStep" type="button"></button>
+      <div class="msg err hidden" id="tripErr"></div>
+    </div>
+    <div class="card"><h3>Stops</h3><div id="stops"></div></div>
+  </section>
+
+  <section id="stop" class="hidden">
+    <div class="card"><h2 id="stopTitle"></h2><p class="sub" id="stopSub"></p>
+      <div class="row2" id="stopLinks"></div>
+      <button class="btn ghost" id="arrived" type="button">I've arrived</button>
+    </div>
+    <div class="card">
+      <h3>Delivered</h3>
+      <label for="rb">Received by (name)</label><input id="rb" autocomplete="off">
+      <label>Condition</label>
+      <div class="seg" id="cond"></div>
+      <div id="issueBox" class="hidden"><label>How many were short / damaged?</label><div id="issues"></div></div>
+      <label for="note">Note (the customer sees it)</label><textarea id="note" maxlength="300"></textarea>
+      <label>Signature</label>
+      <canvas class="sig" id="sig"></canvas>
+      <div class="row2"><button class="btn ghost" id="sigClear" type="button">Clear</button>
+        <label class="btn ghost" style="margin:8px 0 0">Photo<input id="photo" type="file" accept="image/*" capture="environment" hidden></label></div>
+      <img id="photoPrev" class="photo hidden" alt="">
+      <button class="btn green" id="deliver" type="button">Delivered</button>
+      <div class="msg err hidden" id="stopErr"></div>
+    </div>
+    <div class="card">
+      <h3>Couldn't deliver?</h3>
+      <textarea id="why" placeholder="e.g. nobody at the site, gate locked"></textarea>
+      <button class="btn red" id="failed" type="button">Delivery failed</button>
+    </div>
+  </section>
+  <div class="msg ok hidden" id="toast"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let token = localStorage.getItem("inventra_driver") || "", data = null, curTrip = null, curStop = null, cond = "Good", photo = "";
+const CONDS = ["Good", "Short", "Damaged", "Rejected"];
+
+function view(id) {
+  ["login", "trips", "trip", "stop"].forEach(v => $(v).classList.toggle("hidden", v !== id));
+  $("out").classList.toggle("hidden", id === "login");
+  $("back").classList.toggle("hidden", !["trip", "stop"].includes(id));
+  window.scrollTo(0, 0);
+}
+function toast(t) { const m = $("toast"); m.textContent = t; m.classList.remove("hidden"); setTimeout(() => m.classList.add("hidden"), 3500); }
+function where() {
+  return new Promise(res => {
+    if (!navigator.geolocation) return res({});
+    navigator.geolocation.getCurrentPosition(p => res({lat: p.coords.latitude, lng: p.coords.longitude}), () => res({}), {timeout: 6000, maximumAge: 60000});
+  });
+}
+async function api(url, body) {
+  const res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body || {}))});
+  let d = {}; try { d = await res.json(); } catch (e) {}
+  if (res.status === 401) { localStorage.removeItem("inventra_driver"); token = ""; view("login"); }
+  if (!res.ok) throw new Error(d.error || "No connection. Try again.");
+  return d;
+}
+
+$("go").onclick = async () => {
+  $("loginErr").classList.add("hidden");
+  try {
+    const d = await api("/api/driver/login", {name: $("name").value, pin: $("pin").value});
+    token = d.token; localStorage.setItem("inventra_driver", token); load();
+  } catch (e) { $("loginErr").textContent = e.message; $("loginErr").classList.remove("hidden"); }
+};
+$("out").onclick = () => { localStorage.removeItem("inventra_driver"); token = ""; view("login"); };
+$("back").onclick = () => { if (!$("stop").classList.contains("hidden")) showTrip(curTrip.trip_id); else showTrips(); };
+
+async function load() { try { data = await api("/api/driver/trips"); showTrips(); } catch (e) { if (token) toast(e.message); } }
+
+function showTrips() {
+  $("title").textContent = "Hello " + (data.name || "");
+  $("trips").innerHTML = data.trips.length ? data.trips.map(t => {
+    const done = t.stops.filter(s => s.done).length;
+    return `<div class="card" onclick="showTrip('${esc(t.trip_id)}')" style="cursor:pointer"><span class="pill">${esc(t.status)}</span>
+      <h2 style="margin-top:6px">${esc(t.trip_id)}</h2><p class="sub">${esc(t.date)} · ${esc(t.vehicle)} · ${done} of ${t.stops.length} delivered</p></div>`;
+  }).join("") : `<div class="card"><h2>No trips</h2><p class="sub">The office hasn't given you a trip for today.</p>
+      <button class="btn ghost" onclick="load()">Check again</button></div>`;
+  view("trips");
+}
+
+function showTrip(id) {
+  curTrip = data.trips.find(t => t.trip_id === id);
+  if (!curTrip) return showTrips();
+  const t = curTrip;
+  $("title").textContent = t.trip_id;
+  $("tripTitle").textContent = `${t.trip_id} · ${t.status}`;
+  $("tripSub").textContent = `${t.date} · ${t.vehicle}`;
+  const step = {Planned: ["loaded", "Everything is loaded"], Loaded: ["departed", "I'm leaving now"], Departed: ["completed", "Trip done: back at base"]}[t.status];
+  $("tripStep").classList.toggle("hidden", !step);
+  $("km").parentElement && ($("km").classList.toggle("hidden", !step || step[0] === "departed"), $("kmLabel").classList.toggle("hidden", !step || step[0] === "departed"));
+  if (step) { $("tripStep").textContent = step[1]; $("tripStep").dataset.action = step[0]; }
+  $("stops").innerHTML = t.stops.map((s, i) => `<div class="stop ${s.done ? "done" : s.failed ? "bad" : ""}" onclick="showStop('${esc(s.order_id)}')">
+    <div class="num">${s.done ? "✓" : i + 1}</div><div><div class="who">${esc(s.client)}</div>
+    <div class="where">${esc(s.address || "No address on file")}</div><div class="where">Order ${esc(s.order_id)} · ${esc(s.stage_label)}</div></div></div>`).join("");
+  view("trip");
+}
+
+$("tripStep").onclick = async () => {
+  const b = $("tripStep"); b.disabled = true; $("tripErr").classList.add("hidden");
+  try { data = await api("/api/driver/trip", Object.assign({trip_id: curTrip.trip_id, action: b.dataset.action, km: $("km").value}, await where()));
+        $("km").value = ""; toast("Saved"); showTrip(curTrip.trip_id); }
+  catch (e) { $("tripErr").textContent = e.message; $("tripErr").classList.remove("hidden"); }
+  finally { b.disabled = false; }
+};
+
+function showStop(oid) {
+  curStop = curTrip.stops.find(s => s.order_id === oid);
+  const s = curStop;
+  $("title").textContent = s.client;
+  $("stopTitle").textContent = s.client;
+  $("stopSub").textContent = `Order ${s.order_id} · ${s.address || "no address"}` + (s.done ? " · DELIVERED" : "");
+  const links = [];
+  if (s.address) links.push(`<a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}">Directions</a>`);
+  if (s.phone) links.push(`<a class="btn ghost" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">Call</a>`);
+  $("stopLinks").innerHTML = links.join("");
+  cond = "Good"; photo = ""; $("photoPrev").classList.add("hidden"); $("rb").value = ""; $("note").value = ""; $("why").value = "";
+  paintCond();
+  $("issues").innerHTML = s.items.map((x, i) => `<div class="item"><span>${esc(x.description)} <small>(sent ${esc(x.qty)})</small></span>
+     <input type="number" min="0" max="${esc(x.qty)}" inputmode="numeric" data-i="${i}" placeholder="0"></div>`).join("");
+  clearSig();
+  $("stopErr").classList.add("hidden");
+  view("stop");
+  setTimeout(sizeSig, 50);
+}
+function paintCond() {
+  $("cond").innerHTML = CONDS.map(c => `<button type="button" class="${c === cond ? "on" : ""}" onclick="setCond('${c}')">${c}</button>`).join("");
+  $("issueBox").classList.toggle("hidden", !["Short", "Damaged"].includes(cond));
+}
+function setCond(c) { cond = c; paintCond(); }
+
+// signature pad
+const sig = $("sig"), sctx = sig.getContext("2d"); let drawing = false, inked = 0;
+function sizeSig() { const r = sig.getBoundingClientRect(); sig.width = Math.round(r.width); sig.height = 170; clearSig(); }
+function clearSig() { sctx.fillStyle = "#fff"; sctx.fillRect(0, 0, sig.width, sig.height); sctx.strokeStyle = "#0F172A"; sctx.lineWidth = 2.5; sctx.lineCap = "round"; inked = 0; }
+function pt(e) { const r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+sig.addEventListener("pointerdown", e => { drawing = true; sig.setPointerCapture(e.pointerId); const [x, y] = pt(e); sctx.beginPath(); sctx.moveTo(x, y); });
+sig.addEventListener("pointermove", e => { if (!drawing) return; const [x, y] = pt(e); sctx.lineTo(x, y); sctx.stroke(); inked++; });
+sig.addEventListener("pointerup", () => drawing = false);
+$("sigClear").onclick = clearSig;
+window.addEventListener("resize", () => { if (!$("stop").classList.contains("hidden")) sizeSig(); });
+
+$("photo").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas"); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    photo = c.toDataURL("image/jpeg", 0.8); $("photoPrev").src = photo; $("photoPrev").classList.remove("hidden");
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f);
+};
+
+async function stopAction(action, extra) {
+  $("stopErr").classList.add("hidden");
+  try {
+    data = await api("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, await where()));
+    curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
+    toast(action === "arrived" ? "Noted: the customer sees you've arrived" : action === "failed" ? "Saved: the office and the customer can see why" : "Delivered. Thank you!");
+    if (action === "arrived") showStop(curStop.order_id); else showTrip(curTrip.trip_id);
+  } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); $("stopErr").scrollIntoView({block: "center"}); }
+}
+$("arrived").onclick = () => stopAction("arrived");
+$("deliver").onclick = () => {
+  const issues = [...document.querySelectorAll("#issues input")].map(inp => {
+    const x = curStop.items[+inp.dataset.i]; return {sku: x.sku, description: x.description, qty: +inp.value || 0};
+  }).filter(i => i.qty > 0);
+  stopAction("delivered", {received_by: $("rb").value, condition: cond, issues, note: $("note").value,
+                           signature: inked > 5 ? sig.toDataURL("image/png") : "", photo});
+};
+$("failed").onclick = () => stopAction("failed", {note: $("why").value});
+
+if (token) load().then(() => {           // a link like /driver#TRIP-1 or #TRIP-1/111 opens that trip or stop
+  const h = decodeURIComponent(location.hash.slice(1)).split("/");
+  if (h[0] && data) { showTrip(h[0]); if (h[1]) showStop(h[1]); }
+}); else view("login");
+</script>
+</body>
+</html>

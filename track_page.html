@@ -192,6 +192,7 @@
     <div class="card hidden" id="noteCard"><h3>Message from us</h3><div id="note"></div></div>
     <div class="card hidden" id="borderCard"><h3>Cross-border</h3><div id="border"></div></div>
     <div class="msg ok hidden" id="thanks" style="margin:0 0 14px"></div>
+    <div class="card hidden" id="podCard"><h3>Proof of delivery</h3><div id="pod"></div></div>
     <div class="card"><h3>What happened</h3><ul class="tl" id="tl"></ul></div>
     <div class="card hidden" id="confirmCard">
       <h2 id="cTitle">Received your order?</h2>
@@ -284,6 +285,11 @@ function render(v) {
   if (v.border) $("border").innerHTML = `<b>${esc(v.border.status)}</b><br><span class="sub">${esc([v.border.border_post,
       v.border.to ? "to " + v.border.to : ""].filter(Boolean).join(" · "))}</span>`;
 
+  $("podCard").classList.toggle("hidden", !v.proof);
+  if (v.proof) $("pod").innerHTML = `<div><b>${esc(v.proof.by || "Signed")}</b>${v.proof.when ? " · " + esc(v.proof.when) : ""}</div>` +
+      (v.proof.condition && v.proof.condition !== "Good" ? `<div class="sub" style="margin:4px 0 0">Condition: ${esc(v.proof.condition)}</div>` : "") +
+      (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v.proof.signature || "") ? `<img alt="Signature" src="${v.proof.signature}" style="display:block;max-width:100%;height:90px;margin-top:8px;background:#fff;border:1px solid var(--line)">` : "") +
+      (v.proof.photo ? `<div class="sub" style="margin:6px 0 0">A photo was taken at delivery.</div>` : "");
   $("tl").innerHTML = v.events.map(e => `<li class="${["failed", "delayed", "cancelled"].includes(e.kind) ? "bad" : ""}">
       <div class="t">${esc(e.title)}</div>${e.when ? `<div class="w">${esc(e.when)}</div>` : ""}
       ${e.detail ? `<div class="d">${esc(e.detail)}</div>` : ""}</li>`).join("");

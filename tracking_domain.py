@@ -355,3 +355,24 @@ def pin_problem(pin: str) -> str:
     if len(set(pin)) == 1 or pin in "0123456789" or pin in "9876543210":
         return "Too easy to guess: avoid 1111 or 1234."
     return ""
+
+
+# ---- the supplier portal: one private link per supplier (/s/<supplierid>-<code>) ----
+
+def supplier_code(secret: str, supplierid) -> str:
+    mac = hmac.new(str(secret).encode(), ("inventra-supplier:" + str(supplierid)).encode(), hashlib.sha256).digest()
+    return base64.b32encode(mac).decode()[:10]
+
+
+def supplier_link(base_url: str, secret: str, supplierid) -> str:
+    base = str(base_url or "").strip().rstrip("/")
+    return f"{base}/s/{supplierid}-{supplier_code(secret, supplierid)}" if base else ""
+
+
+def supplier_from_key(secret: str, key: str):
+    """'/s/12-ABCDEFGHJK' -> '12' when the code is right, else None."""
+    key = str(key or "").strip().strip("/")
+    if "-" not in key:
+        return None
+    sid, code = key.rsplit("-", 1)
+    return sid if hmac.compare_digest(code.upper(), supplier_code(secret, sid)) else None

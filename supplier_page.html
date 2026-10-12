@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="robots" content="noindex">
+<title>Supplier portal · {{COMPANY}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A; --muted:#5B6474;
+          --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; }
+  }
+  * { box-sizing:border-box; border-radius:0; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); }
+  button, input, textarea { font:inherit; color:inherit; }
+  .bar { background:var(--navy); color:#fff; padding:12px 16px; }
+  .bar .in { max-width:860px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .bar img { height:38px; } .bar .co { font-size:11px; letter-spacing:.16em; text-transform:uppercase; opacity:.75; } .bar .t { font-weight:600; }
+  main { max-width:860px; margin:0 auto; padding:16px 16px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:16px; margin-bottom:12px; }
+  h2 { margin:0 0 4px; font-size:18px; } h3 { margin:16px 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; }
+  th, td { padding:8px 6px; border-top:1px solid var(--line); vertical-align:top; } td.n { text-align:right; white-space:nowrap; }
+  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:10px; font-size:15px; }
+  td input { padding:8px; text-align:right; }
+  .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; } label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
+  .btn { border:0; background:var(--navy); color:#fff; font-weight:600; padding:12px 18px; cursor:pointer; margin-top:12px; }
+  .btn.green { background:var(--green); } .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .msg { padding:10px 12px; margin-bottom:12px; } .msg.err { background:var(--err-bg); color:var(--err-ink); } .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .pill { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 7px; background:var(--soft); }
+  .pill.ok { background:var(--ok-bg); color:var(--ok-ink); } .hidden { display:none !important; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; } .row > div { flex:1; min-width:160px; }
+  @media (max-width:600px) { .grid { grid-template-columns:1fr 1fr; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in"><img src="/logo.png" alt="" onerror="this.remove()">
+  <div><div class="co">{{COMPANY}}</div><div class="t" id="who">Supplier portal</div></div></div></header>
+<main>
+  <div class="msg ok hidden" id="ok"></div><div class="msg err hidden" id="err"></div>
+  <div id="rfqs"></div>
+  <div id="pos"></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const key = decodeURIComponent((location.pathname.match(/^\/s\/([^/]+)/) || [])[1] || "");
+let data = null;
+function say(t, bad) { const m = $(bad ? "err" : "ok"); $(bad ? "ok" : "err").classList.add("hidden"); m.textContent = t; m.classList.remove("hidden"); window.scrollTo(0, 0); }
+async function post(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({key}, body))});
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(d.error || "Not available right now. Please try again.");
+  return d;
+}
+async function load() {
+  try { const r = await fetch("/api/supplier?k=" + encodeURIComponent(key)); const d = await r.json(); if (!r.ok) throw new Error(d.error); render(d); }
+  catch (e) { say(e.message || "This link isn't valid.", true); }
+}
+function render(d) {
+  data = d; $("who").textContent = d.supplier + " · supplier portal";
+  if (d.message) say(d.message);
+  $("rfqs").innerHTML = `<h3>Requests for a quote</h3>` + (d.rfqs.length ? d.rfqs.map((r, i) => `<div class="card"><h2>${esc(r.title || r.rfq_id)}</h2>
+    <p class="sub">${esc(r.rfq_id)}${r.needed_by ? " · needed by " + esc(r.needed_by) : ""}${r.quote ? ' · <span class="pill ok">quote sent</span>' : ""}${r.notes ? "<br>" + esc(r.notes) : ""}</p>
+    <table><tr><th>Item</th><th class="n">Qty</th><th class="n" style="width:160px">Unit price (R)</th></tr>${r.lines.map(l => `<tr><td>${esc(l.description || l.sku)}${l.spec ? `<div class="sub">${esc(l.spec)}</div>` : ""}</td>
+      <td class="n">${esc(l.qty)}</td><td class="n"><input inputmode="decimal" data-r="${i}" data-sku="${esc(l.sku)}" value="${r.quote && r.quote.prices && r.quote.prices[l.sku] != null ? r.quote.prices[l.sku] : ""}"></td></tr>`).join("")}</table>
+    <div class="grid"><div><label>Delivery fee (R excl VAT)</label><input id="fee${i}" inputmode="decimal" value="${r.quote ? esc(r.quote.delivery_fee || "") : ""}"></div>
+      <div><label>Delivery time (days)</label><input id="lead${i}" inputmode="numeric" value="${r.quote ? esc(r.quote.lead_days || "") : ""}"></div>
+      <div><label>Payment terms</label><input id="terms${i}" placeholder="e.g. 30 days" value="${r.quote ? esc(r.quote.payment_terms || "") : ""}"></div>
+      <div><label>Warranty (months)</label><input id="war${i}" inputmode="numeric" value="${r.quote ? esc(r.quote.warranty_months || "") : ""}"></div>
+      <div><label>Quote valid until</label><input id="valid${i}" type="date" value="${r.quote ? esc(r.quote.valid_until || "") : ""}"></div>
+      <div><label>Your quote number</label><input id="ref${i}" value="${r.quote ? esc(r.quote.reference || "") : ""}"></div></div>
+    <label><input type="checkbox" id="vat${i}" style="width:auto" ${r.quote && r.quote.vat_included ? "checked" : ""}> My prices include VAT</label>
+    <label>Notes</label><textarea id="notes${i}" rows="2">${r.quote ? esc(r.quote.notes || "") : ""}</textarea>
+    <button class="btn green" onclick="quote(${i})">Send my quote</button> <button class="btn ghost" onclick="quote(${i}, true)">We can't quote</button></div>`).join("")
+    : `<div class="card"><p class="sub" style="margin:0">No open requests for a quote.</p></div>`);
+  $("pos").innerHTML = `<h3>Your open orders</h3>` + (d.pos.length ? d.pos.map((p, i) => `<div class="card"><h2>${esc(p.po)}</h2>
+    <p class="sub">Ordered ${esc(p.date)} · ${p.expected ? "expected " + esc(p.expected) : "no delivery date yet"} ${p.confirmed ? '· <span class="pill ok">date confirmed</span>' : ""}</p>
+    <table><tr><th>Item</th><th class="n">Still to deliver</th></tr>${p.lines.map(l => `<tr><td>${esc(l.description)}</td><td class="n">${esc(l.qty)}</td></tr>`).join("")}</table>
+    <div class="row"><div><label>Delivery date</label><input type="date" id="d${i}" value="${esc(p.expected)}"></div><div><label>Note</label><input id="n${i}" placeholder="optional"></div>
+      <div style="flex:0"><button class="btn" onclick="confirmPo(${i})">Confirm the date</button></div></div>
+    <div class="row"><div><label>Invoice or delivery note (PDF or photo)</label><input type="file" id="f${i}" accept=".pdf,image/*"></div>
+      <div style="flex:0"><button class="btn ghost" onclick="upload(${i})">Upload</button></div></div></div>`).join("")
+    : `<div class="card"><p class="sub" style="margin:0">No open orders.</p></div>`);
+}
+async function quote(i, declined) {
+  const r = data.rfqs[i], prices = {};
+  document.querySelectorAll(`input[data-r="${i}"]`).forEach(x => { if (x.value.trim()) prices[x.dataset.sku] = x.value.trim(); });
+  try { render(await post("/api/supplier/quote", {rfq_id: r.rfq_id, prices, declined: !!declined, delivery_fee: $("fee" + i).value,
+      lead_days: $("lead" + i).value, payment_terms: $("terms" + i).value, warranty_months: $("war" + i).value,
+      valid_until: $("valid" + i).value, reference: $("ref" + i).value, vat_included: $("vat" + i).checked, notes: $("notes" + i).value})); }
+  catch (e) { say(e.message, true); }
+}
+async function confirmPo(i) {
+  try { render(await post("/api/supplier/po", {po: data.pos[i].po, date: $("d" + i).value, note: $("n" + i).value})); }
+  catch (e) { say(e.message, true); }
+}
+function upload(i) {
+  const f = $("f" + i).files[0]; if (!f) return say("Choose the file first.", true);
+  const rd = new FileReader();
+  rd.onload = async () => { try { const d = await post("/api/supplier/doc", {po: data.pos[i].po, name: f.name, data: rd.result}); say(d.message); } catch (e) { say(e.message, true); } };
+  rd.readAsDataURL(f);
+}
+load();
+</script>
+</body>
+</html>

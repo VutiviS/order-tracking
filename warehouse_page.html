@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Warehouse">
+<meta name="robots" content="noindex">
+<title>Warehouse · {{COMPANY}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --amber:#B45309; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A;
+          --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; }
+  }
+  * { box-sizing:border-box; border-radius:0; -webkit-tap-highlight-color:transparent; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); min-height:100vh; }
+  button, input { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+  .bar { background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 10px) 14px 10px; }
+  .bar .in { max-width:600px; margin:0 auto; display:flex; align-items:center; gap:10px; }
+  .bar img { height:34px; } .bar .t { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar button { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 10px; font-size:13px; }
+  main { max-width:600px; margin:0 auto; padding:12px 12px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:14px; margin-bottom:10px; }
+  h2 { margin:0 0 6px; font-size:18px; } h3 { margin:0 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 8px; }
+  label { display:block; font-size:13px; font-weight:600; margin:10px 0 6px; }
+  input { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; }
+  .btn { display:block; width:100%; border:0; background:var(--navy); color:#fff; font-weight:600; padding:14px; margin-top:10px; font-size:16px; cursor:pointer; }
+  .btn.green { background:var(--green); } .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn[disabled] { opacity:.6; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { background:var(--card); border:1px solid var(--line); padding:18px 14px; text-align:left; cursor:pointer; min-height:110px; }
+  .tile b { display:block; font-size:16px; } .tile span { color:var(--muted); font-size:13px; }
+  .scan { display:flex; gap:8px; } .scan input { flex:1; } .scan button { width:auto; margin:0; padding:0 14px; }
+  .msg { padding:10px 12px; margin:10px 0; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
+  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .row { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:10px 0; border-top:1px solid var(--line); }
+  .row:first-child { border-top:0; } .row .w { font-size:12px; color:var(--muted); }
+  .row.done b { color:var(--green); } .qty { font-weight:700; font-size:18px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .step { display:flex; gap:6px; align-items:center; } .step button { width:40px; height:40px; border:1px solid var(--line); background:var(--card); font-size:18px; }
+  .list .row { cursor:pointer; }
+  #cam { position:fixed; inset:0; background:#000; z-index:50; display:flex; flex-direction:column; }
+  #cam video { flex:1; width:100%; object-fit:cover; } #cam .frame { position:absolute; left:10%; right:10%; top:35%; height:22%; border:3px solid #5DB032; }
+  #cam button { margin:0; } #cam .hint { color:#fff; text-align:center; padding:10px; }
+  @media (max-width:360px) { .tiles { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in">
+  <img src="/logo.png" alt="" onerror="this.remove()">
+  <div class="t" id="title">Warehouse</div>
+  <button id="home" class="hidden" type="button">Menu</button>
+  <button id="out" class="hidden" type="button">Sign out</button>
+</div></header>
+<main>
+  <div class="msg ok hidden" id="ok"></div>
+  <div class="msg err hidden" id="err"></div>
+  <section id="v-login" class="card">
+    <h2>Warehouse sign-in</h2>
+    <p class="sub">Your INVENTRA username and password.</p>
+    <label for="u">Username</label><input id="u" autocomplete="username" autocapitalize="off">
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
+    <button class="btn" id="go" type="button">Sign in</button>
+  </section>
+  <section id="v-menu" class="hidden"><div class="tiles" id="tiles"></div></section>
+  <section id="v-work" class="hidden"></section>
+</main>
+<div id="cam" class="hidden"><video id="video" playsinline muted></video><div class="frame"></div>
+  <div class="hint">Point at the barcode</div><button class="btn ghost" id="camClose" style="color:#fff;border-color:#fff">Close camera</button></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let token = localStorage.getItem("inventra_wh") || "", me = JSON.parse(localStorage.getItem("inventra_wh_me") || "{}");
+const MODES = {pick: ["Pick & pack", "Orders waiting to go out"], receive: ["Goods received", "Check a delivery against its order"],
+               move: ["Put away / move", "Put stock in a bin or move it"], count: ["Count a bin", "Count what is in a bin"],
+               lookup: ["Look up", "Scan anything: what and where is it?"]};
+
+function say(t, bad) { const m = $(bad ? "err" : "ok"); $(bad ? "ok" : "err").classList.add("hidden"); m.textContent = t; m.classList.remove("hidden"); if (!bad) setTimeout(() => m.classList.add("hidden"), 4000); window.scrollTo(0, 0); }
+function clear() { $("ok").classList.add("hidden"); $("err").classList.add("hidden"); }
+function view(v) { ["login", "menu", "work"].forEach(x => $("v-" + x).classList.toggle("hidden", x !== v)); $("home").classList.toggle("hidden", v !== "work"); $("out").classList.toggle("hidden", v === "login"); }
+async function api(path, body) {
+  const r = await fetch("/api/wh/" + path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body || {}))});
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (r.status === 401) { localStorage.removeItem("inventra_wh"); token = ""; view("login"); }
+  if (!r.ok) { const e = new Error(d.error || "No connection. Try again."); e.status = r.status; throw e; }
+  return d;
+}
+function beep(ok) { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.frequency.value = ok ? 880 : 220; o.connect(a.destination); o.start(); setTimeout(() => { o.stop(); a.close(); }, ok ? 90 : 300); } catch (e) {} if (navigator.vibrate) navigator.vibrate(ok ? 40 : [80, 60, 80]); }
+
+// ---- scanning: a box (typing or a USB / Bluetooth scanner) plus the phone camera ----
+let onScan = null, stream = null, zx = null;
+function scanBox(placeholder) {
+  return `<div class="scan"><input id="code" placeholder="${esc(placeholder)}" autocomplete="off" autocapitalize="characters" enterkeyhint="go">
+          <button class="btn" type="button" onclick="camera()">Camera</button></div>`;
+}
+function wireScan(fn) {
+  onScan = fn;
+  const box = $("code"); if (!box) return;
+  box.onkeydown = e => { if (e.key === "Enter" && box.value.trim()) { const v = box.value.trim(); box.value = ""; fn(v); } };
+  setTimeout(() => box.focus(), 50);
+}
+async function camera() {
+  $("cam").classList.remove("hidden");
+  const video = $("video");
+  try {
+    if ("BarcodeDetector" in window) {
+      stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+      video.srcObject = stream; await video.play();
+      const det = new BarcodeDetector();
+      const tick = async () => {
+        if ($("cam").classList.contains("hidden")) return;
+        try { const f = await det.detect(video); if (f.length) { closeCam(); onScan && onScan(f[0].rawValue); return; } } catch (e) {}
+        requestAnimationFrame(tick);
+      };
+      tick();
+    } else {
+      if (!window.ZXingBrowser) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+      zx = new ZXingBrowser.BrowserMultiFormatReader();
+      zx.decodeFromVideoDevice(undefined, video, (res) => { if (res) { closeCam(); onScan && onScan(res.getText()); } });
+    }
+  } catch (e) { closeCam(); say("The camera can't be used here: type the code or use a scanner.", true); }
+}
+function closeCam() { $("cam").classList.add("hidden"); if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } if (zx) { try { ZXingBrowser.BrowserMultiFormatReader.releaseAllStreams(); } catch (e) {} zx = null; } }
+$("camClose").onclick = closeCam;
+
+// ---- sign in, menu ----
+$("go").onclick = async () => {
+  clear();
+  try { const d = await api("login", {username: $("u").value, password: $("p").value}); token = d.token; me = d;
+        localStorage.setItem("inventra_wh", token); localStorage.setItem("inventra_wh_me", JSON.stringify({name: d.name, can: d.can})); menu(); }
+  catch (e) { say(e.message, true); }
+};
+$("out").onclick = () => { localStorage.removeItem("inventra_wh"); token = ""; view("login"); };
+$("home").onclick = () => { closeCam(); menu(); };
+function menu() {
+  $("title").textContent = me.name ? "Hello " + me.name.split(" ")[0] : "Warehouse";
+  const can = (me.can || []).concat(["lookup"]);
+  $("tiles").innerHTML = Object.entries(MODES).filter(([k]) => can.includes(k)).map(([k, [t, s]]) =>
+    `<button class="tile" type="button" onclick="open_('${k}')"><b>${t}</b><span>${s}</span></button>`).join("");
+  view("menu");
+}
+function open_(k) { clear(); $("title").textContent = MODES[k][0]; view("work"); ({pick, receive, move, count, lookup})[k](); }
+
+// ---- look up ----
+function lookup() {
+  $("v-work").innerHTML = `<div class="card">${scanBox("Scan or type a product, serial or bin")}</div><div id="res"></div>`;
+  wireScan(async code => {
+    try { const d = await api("lookup", {code}); beep(true);
+      $("res").innerHTML = `<div class="card"><h3>${esc(d.type)}</h3><h2>${esc(d.description || d.bin)}</h2>` +
+        (d.type === "bin" ? (d.holds.length ? d.holds.map(h => `<div class="row"><span>${esc(h.description)}</span><span class="qty">${h.qty}</span></div>`).join("") : `<p class="sub">Empty</p>`)
+          : `<p class="sub">${esc(d.sku)}${d.serial ? " · serial " + esc(d.serial) + (d.in_stock ? " · in stock" : " · NOT in stock") : ""}</p>
+             <div class="row"><span>On hand</span><span class="qty">${d.on_hand}</span></div><div class="row"><span>Where</span><span>${esc(d.where)}</span></div>`) + `</div>`;
+    } catch (e) { beep(false); say(e.message, true); }
+  });
+}
+
+// ---- pick & pack ----
+let orders = [], cur = null, picked = {};
+async function pick() {
+  $("v-work").innerHTML = `<div class="card"><h3>Orders waiting to go out</h3><div class="list" id="ol">Loading…</div></div>`;
+  try { orders = (await api("orders")).orders;
+        $("ol").innerHTML = orders.length ? orders.map(o => `<div class="row" onclick="pickOrder('${esc(o.order_id)}')"><div><b>${esc(o.client)}</b>
+          <div class="w">Order ${esc(o.order_id)} · ${esc(o.date)} · ${o.items.length} line(s)${o.packed ? " · PACKED" : ""}</div></div><span>›</span></div>`).join("") : "Nothing waiting 🎉";
+  } catch (e) { say(e.message, true); }
+}
+function pickOrder(id) {
+  cur = orders.find(o => o.order_id === id); picked = {};
+  cur.items.forEach(i => picked[i.sku] = {qty: 0, serials: []});
+  $("title").textContent = cur.client;
+  $("v-work").innerHTML = `<div class="card"><h2>${esc(cur.client)}</h2><p class="sub">Order ${esc(cur.order_id)}</p>${scanBox("Scan each product or serial number")}</div>
+    <div class="card" id="pl"></div><div class="card"><label for="pnote">Note (optional)</label><input id="pnote">
+    <button class="btn green" id="packed" type="button">Packed</button></div>`;
+  paintPick();
+  wireScan(async code => {
+    try { const d = await api("lookup", {code});
+      const line = cur.items.find(i => i.sku === d.sku);
+      if (!line) { beep(false); return say(`${d.description} isn't on this order.`, true); }
+      const p = picked[line.sku];
+      if (d.type === "serial") {
+        if (!d.in_stock) { beep(false); return say(`Serial ${d.serial} isn't in stock.`, true); }
+        if (p.serials.includes(d.serial)) { beep(false); return say(`Serial ${d.serial} is already scanned.`, true); }
+        p.serials.push(d.serial); p.qty = p.serials.length;
+      } else if (line.serialized) { beep(false); return say(`${line.description} has serial numbers: scan the serial, not the product.`, true); }
+      else p.qty += 1;
+      if (p.qty > line.qty) { beep(false); say(`Too many: the order needs ${line.qty} of ${line.description}.`, true); } else { beep(true); clear(); }
+      paintPick();
+    } catch (e) { beep(false); say(e.message, true); }
+  });
+  $("packed").onclick = () => sendPick(false);
+}
+function paintPick() {
+  $("pl").innerHTML = `<h3>Pick list</h3>` + cur.items.map(i => { const p = picked[i.sku]; const done = p.qty === i.qty;
+    return `<div class="row ${done ? "done" : ""}"><div><b>${esc(i.description)}</b><div class="w">${esc(i.where)}${i.serialized ? " · scan serials" : ""}</div>${i.fefo ? `<div class="w" style="color:#B45309;font-weight:600">${esc(i.fefo)}</div>` : ""}
+      ${p.serials.length ? `<div class="w">${p.serials.map(esc).join(", ")}</div>` : ""}</div>
+      <div class="step">${i.serialized ? "" : `<button onclick="adj('${esc(i.sku)}',-1)">−</button>`}<span class="qty">${p.qty} / ${i.qty}</span>${i.serialized ? "" : `<button onclick="adj('${esc(i.sku)}',1)">+</button>`}</div></div>`; }).join("");
+}
+function adj(sku, d) { const p = picked[sku]; p.qty = Math.max(0, p.qty + d); paintPick(); }
+async function sendPick(accept) {
+  const lines = Object.entries(picked).map(([sku, p]) => ({sku, qty: p.qty, serials: p.serials}));
+  try { const d = await api("pick", {order_id: cur.order_id, lines, note: $("pnote").value, accept_short: accept}); beep(true); say(d.message); pick(); }
+  catch (e) { if (e.status === 409 && confirm(e.message + "\n\nSend it as packed anyway (the office will see the differences)?")) sendPick(true); else say(e.message, true); }
+}
+
+// ---- goods received ----
+let po = null, got = {};
+function receive() {
+  $("v-work").innerHTML = `<div class="card"><label for="po">Purchase order number</label><div class="scan"><input id="po" autocapitalize="characters" placeholder="e.g. PO-2610-0042"><button class="btn" type="button" id="poGo">Open</button></div></div><div id="rw"></div>`;
+  $("poGo").onclick = async () => {
+    try { po = await api("po", {po: $("po").value}); got = {}; po.lines.forEach(l => got[l.sku] = {qty: 0, damaged: 0, serials: []}); paintReceive(); }
+    catch (e) { say(e.message, true); }
+  };
+}
+function paintReceive() {
+  $("rw").innerHTML = `<div class="card"><h2>${esc(po.po)} · ${esc(po.supplier)}</h2>${scanBox("Scan each item as you unpack")}</div>
+    <div class="card"><h3>Expected</h3>${po.lines.map(l => { const g = got[l.sku] || {qty: 0, damaged: 0, serials: []};
+      return `<div class="row ${g.qty === l.open ? "done" : ""}"><div><b>${esc(l.description)}</b><div class="w">${g.damaged ? g.damaged + " damaged · " : ""}${g.serials.map(esc).join(", ")}</div></div>
+      <div class="step"><button onclick="radj('${esc(l.sku)}',-1)">−</button><span class="qty">${g.qty} / ${l.open}</span><button onclick="radj('${esc(l.sku)}',1)">+</button>
+      <button title="damaged" onclick="rdam('${esc(l.sku)}')">!</button></div></div>`; }).join("")}</div>
+    <div class="card"><label for="rnote">Note (optional)</label><input id="rnote"><button class="btn green" id="rsend">Delivery checked</button></div>`;
+  wireScan(async code => {
+    try { const d = await api("lookup", {code}); const g = got[d.sku] || (got[d.sku] = {qty: 0, damaged: 0, serials: []});
+      if (d.serial) { if (g.serials.includes(d.serial)) { beep(false); return say("Already scanned.", true); } g.serials.push(d.serial); }
+      g.qty += 1; beep(!!po.lines.find(l => l.sku === d.sku)); if (!po.lines.find(l => l.sku === d.sku)) say(`${d.description} isn't on this order.`, true); paintReceive();
+    } catch (e) { beep(false); say(e.message, true); }
+  });
+  $("rsend").onclick = async () => { try { const d = await api("receive", {po: po.po, lines: Object.entries(got).map(([sku, g]) => Object.assign({sku}, g)), note: $("rnote").value});
+    beep(true); say(d.message + (d.differences.length ? " " + d.differences.join("; ") : "")); receive(); } catch (e) { say(e.message, true); } };
+}
+function radj(sku, d) { const g = got[sku]; g.qty = Math.max(0, g.qty + d); paintReceive(); }
+function rdam(sku) { const n = prompt("How many of these are damaged?", got[sku].damaged || 1); if (n !== null) { got[sku].damaged = Math.max(0, +n || 0); paintReceive(); } }
+
+// ---- put away / move ----
+let mv = {};
+function move() {
+  mv = {};
+  $("v-work").innerHTML = `<div class="card"><h3>1 · Scan the product or serial</h3>${scanBox("Product or serial")}<div id="mvp" class="sub"></div>
+    <label for="mfrom">From bin (empty = not in a bin yet)</label><input id="mfrom" autocapitalize="characters">
+    <label for="mqty">How many</label><input id="mqty" inputmode="numeric" value="1">
+    <label for="mto">To bin (scan the bin label)</label><input id="mto" autocapitalize="characters">
+    <button class="btn green" id="msave">Save</button></div>`;
+  wireScan(async code => { try { const d = await api("lookup", {code});
+      if (d.type === "bin") { $("mto").value = d.bin; beep(true); return; }
+      mv.code = code; $("mvp").textContent = `${d.description} · ${d.where}` + (d.serial ? ` · serial ${d.serial}` : ""); if (d.serial) $("mqty").value = 1; beep(true);
+    } catch (e) { beep(false); say(e.message, true); } });
+  $("msave").onclick = async () => { if (!mv.code) return say("Scan the product first.", true);
+    try { const d = await api("move", {code: mv.code, qty: $("mqty").value, from_bin: $("mfrom").value, to_bin: $("mto").value}); beep(true); say(d.message); move(); }
+    catch (e) { beep(false); say(e.message, true); } };
+}
+
+// ---- count a bin ----
+let cbin = "", counts = {}, names = {};
+function count() {
+  cbin = ""; counts = {}; names = {};
+  $("v-work").innerHTML = `<div class="card"><h3 id="ch">1 · Scan the bin</h3>${scanBox("Bin, then each item in it")}</div><div class="card" id="cl"></div>
+    <div class="card"><button class="btn green" id="csend">Count done</button></div>`;
+  paintCount();
+  wireScan(async code => { try { const d = await api("lookup", {code});
+      if (d.type === "bin") { cbin = d.bin; counts = {}; $("ch").textContent = "Bin " + d.bin + " · now scan each item"; beep(true); paintCount(); return; }
+      if (!cbin) { beep(false); return say("Scan the bin first.", true); }
+      counts[d.sku] = (counts[d.sku] || 0) + 1; names[d.sku] = d.description; beep(true); paintCount();
+    } catch (e) { beep(false); say(e.message, true); } });
+  $("csend").onclick = async () => { if (!cbin) return say("Scan the bin first.", true);
+    if (!confirm(`Finish the count of ${cbin}? Anything not scanned counts as zero.`)) return;
+    try { const d = await api("count", {bin: cbin, counts}); beep(true); say(d.message + (d.differences.length ? " " + d.differences.join("; ") : "")); count(); }
+    catch (e) { say(e.message, true); } };
+}
+function paintCount() {
+  $("cl").innerHTML = `<h3>Counted</h3>` + (Object.keys(counts).length ? Object.entries(counts).map(([sku, n]) =>
+    `<div class="row"><span>${esc(names[sku] || sku)}</span><div class="step"><button onclick="cadj('${esc(sku)}',-1)">−</button><span class="qty">${n}</span><button onclick="cadj('${esc(sku)}',1)">+</button></div></div>`).join("") : `<p class="sub">Nothing yet</p>`);
+}
+function cadj(sku, d) { counts[sku] = Math.max(0, (counts[sku] || 0) + d); paintCount(); }
+
+if (token && me.can) menu(); else view("login");
+</script>
+</body>
+</html>

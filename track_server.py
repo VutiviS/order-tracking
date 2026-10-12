@@ -8,6 +8,9 @@ and leave a short rating. Nothing about prices or other customers is shown.
 Data: the same Supabase database the INVENTRA desktop apps use (customer_order, despatching, order_tracking,
 cross_border_shipments, customers). Staff update deliveries in the desktop app: Dispatch > Order tracking.
 
+Drivers open /driver on their phones, sign in with their name and the PIN the office set (Order Tracking > Tracking
+website & drivers) and record each trip: loaded, left, arrived, delivered (name, condition, signature, photo) or failed.
+
 Settings (environment variables): SUPABASE_URL, SUPABASE_KEY, COMPANY_NAME, COMPANY_PHONE, COMPANY_EMAIL,
 COMPANY_WHATSAPP (optional, e.g. 27821234567), TZ (default Africa/Johannesburg)."""
 
@@ -17,7 +20,7 @@ import os
 import sys
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -26,6 +29,9 @@ if hasattr(time, "tzset"):
     time.tzset()
 
 import tracking_domain as TD  # noqa: E402
+from warehouse import Warehouse, WarehouseError  # noqa: E402
+from supplier import SupplierError, SupplierPortal  # noqa: E402
+from quotes_web import QuoteError, QuotePortal  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 PAGE_FILE = HERE / "track_page.html"
@@ -160,6 +166,191 @@ class Tracker:
         return self.view(oid, fresh=True)
 
 
+# =============================================================================
+# DRIVERS: sign in with name + PIN on the phone, record trips and deliveries (proof of delivery)
+# =============================================================================
+
+import base64  # noqa: E402
+import hashlib  # noqa: E402
+import hmac  # noqa: E402
+
+DRIVER_DAYS = 14
+PROOF_BUCKET = "delivery-proofs"
+
+
+def _driver_secret() -> bytes:
+    return hashlib.sha256(("inventra-driver:" + os.environ.get("SUPABASE_KEY", "")).encode()).digest()
+
+
+def driver_token(driver: dict) -> str:
+    payload = {"d": driver["id"], "x": int(time.time()) + DRIVER_DAYS * 86400,
+               "h": hashlib.sha256(str(driver.get("pin_hash") or "").encode()).hexdigest()[:12]}
+    raw = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
+    return raw + "." + hmac.new(_driver_secret(), raw.encode(), hashlib.sha256).hexdigest()[:40]
+
+
+class Drivers:
+    """Mixed into Tracker: the driver side of the site."""
+
+    def _driver(self, token: str) -> dict:
+        try:
+            raw, sig = str(token).split(".", 1)
+            if not hmac.compare_digest(sig, hmac.new(_driver_secret(), raw.encode(), hashlib.sha256).hexdigest()[:40]):
+                raise ValueError
+            p = json.loads(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)))
+            if p["x"] < time.time():
+                raise ValueError
+        except (ValueError, KeyError, TypeError):
+            raise TrackError("Please sign in again.", 401)
+        rows = self.db.table("fleet_drivers").select("*").eq("id", p["d"]).execute().data or []
+        if not rows or rows[0].get("active") is False or \
+                hashlib.sha256(str(rows[0].get("pin_hash") or "").encode()).hexdigest()[:12] != p["h"]:
+            raise TrackError("Please sign in again.", 401)
+        return rows[0]
+
+    def driver_login(self, body: dict, ip: str) -> dict:
+        self._limit("driver:" + ip)
+        name = " ".join(str(body.get("name") or "").split()).lower()
+        pin = str(body.get("pin") or "")
+        rows = [d for d in self.db.table("fleet_drivers").select("*").execute().data or []
+                if " ".join(str(d.get("name") or "").split()).lower() == name and d.get("active") is not False]
+        d = next((d for d in rows if d.get("pin_hash") and TD.pin_ok(d["pin_hash"], pin)), None)
+        if not d:
+            self._failed("driver:" + ip)
+            raise TrackError("Name or PIN not right. Ask the office to set your PIN.", 403)
+        return {"token": driver_token(d), "name": d.get("name")}
+
+    def driver_trips(self, body: dict) -> dict:
+        d = self._driver(body.get("token"))
+        recent = (datetime.now().date() - timedelta(days=1)).isoformat()
+        trips = [t for t in self.db.table("delivery_trips").select("*").eq("driver", d.get("name")).execute().data or []
+                 if t.get("status") not in ("Completed", "Cancelled") or str(t.get("trip_date"))[:10] >= recent
+                 or str(t.get("updated_at") or "")[:10] >= recent]
+        trips.sort(key=lambda t: (str(t.get("trip_date")), str(t.get("trip_id"))))
+        out = []
+        for t in trips:
+            stops = []
+            for oid in t.get("orders") or []:
+                oid = str(oid)
+                try:
+                    order, despatch, track, ships = self.order(oid, fresh=True)
+                except TrackError:
+                    continue
+                cust = (self._rows("customers", "company_name", order.get("client_name") or "") or [{}])[0]
+                v = TD.view(order, despatch, track, ships)
+                stops.append({"order_id": oid, "client": order.get("client_name"), "address": cust.get("physical_address") or "",
+                              "phone": cust.get("phone_number") or "", "stage": v["stage"], "stage_label": v["stage_label"],
+                              "done": v["stage"] == "delivered" or bool((track or {}).get("pod")),
+                              "failed": bool(v["problem"]) and v["stage"] != "delivered",
+                              "items": [{"sku": x.get("sku"), "description": x.get("product_description") or x.get("sku"),
+                                         "qty": TD.num(x.get("dispatched_quantity"))} for x in despatch
+                                        if (x.get("sku") or "") != TD.DELIVERY_SKU]})
+            out.append({"trip_id": t["trip_id"], "date": str(t.get("trip_date"))[:10], "vehicle": t.get("vehicle") or "",
+                        "status": t.get("status"), "start_km": t.get("start_km"), "stops": stops})
+        return {"name": d.get("name"), "trips": out}
+
+    def _trip(self, d: dict, trip_id: str) -> dict:
+        rows = self.db.table("delivery_trips").select("*").eq("trip_id", trip_id).execute().data or []
+        if not rows or rows[0].get("driver") != d.get("name"):
+            raise TrackError("That trip isn't yours.", 403)
+        return rows[0]
+
+    def _save_track(self, oid: str, row: dict):
+        row = {k: v for k, v in row.items() if k != "created_at"}
+        row["order_id"] = oid
+        self.db.table(TD.TABLE).upsert(row, on_conflict="order_id").execute()
+        self.cache.pop(oid, None)
+
+    def driver_trip(self, body: dict) -> dict:
+        d = self._driver(body.get("token"))
+        t = self._trip(d, str(body.get("trip_id") or ""))
+        action = body.get("action")
+        nxt = {"loaded": ("Planned", "Loaded"), "departed": ("Loaded", "Departed"), "completed": ("Departed", "Completed")}
+        if action not in nxt:
+            raise TrackError("Unknown step.")
+        if t.get("status") not in (nxt[action][0], nxt[action][1]):
+            raise TrackError(f"The trip is {str(t.get('status')).lower()}: that step doesn't fit.", 409)
+        now = datetime.now().replace(microsecond=0)
+        ev = list(t.get("events") or []) + [{"kind": action, "at": now.isoformat(), "by": d.get("name"),
+                                             "lat": body.get("lat"), "lng": body.get("lng")}]
+        change = {"status": nxt[action][1], "events": ev, "updated_at": now.isoformat()}
+        km = TD.num(body.get("km"))
+        if km and action == "loaded":
+            change["start_km"] = km
+        if km and action == "completed":
+            change["end_km"] = km
+        self.db.table("delivery_trips").update(change).eq("trip_id", t["trip_id"]).execute()
+        if action in ("loaded", "departed"):
+            note = (t.get("vehicle") or "") if action == "loaded" else f"Driver {d.get('name')}"
+            for oid in t.get("orders") or []:
+                track = (self._rows(TD.TABLE, "order_id", str(oid)) or [None])[0]
+                row = TD.add_event(track, action, note, by=d.get("name"), when=now)
+                row["trip_id"] = t["trip_id"]
+                self._save_track(str(oid), row)
+        return self.driver_trips(body)
+
+    def _photo(self, oid: str, data_url: str) -> str:
+        if not data_url:
+            return None
+        head, _, b64 = str(data_url).partition(",")
+        raw = base64.b64decode(b64 or "")
+        if len(raw) > 6 * 1024 * 1024:
+            raise TrackError("The photo is too big.")
+        key = f"{oid}/{datetime.now():%Y%m%d%H%M%S}.jpg"
+        try:
+            self.db.storage.from_(PROOF_BUCKET).upload(key, raw, {"content-type": "image/jpeg"})
+        except Exception as e:
+            log.warning("photo upload failed: %s", str(e)[:200])
+            return None                      # the delivery is still recorded
+        return key
+
+    def driver_stop(self, body: dict) -> dict:
+        d = self._driver(body.get("token"))
+        t = self._trip(d, str(body.get("trip_id") or ""))
+        oid = TD.clean_order_id(body.get("order_id"))
+        if oid not in [str(x) for x in t.get("orders") or []]:
+            raise TrackError("That order isn't on this trip.", 403)
+        action = body.get("action")
+        now = datetime.now().replace(microsecond=0)
+        track = (self._rows(TD.TABLE, "order_id", oid) or [None])[0]
+        note = str(body.get("note") or "").strip()[:300]
+        where = {"lat": body.get("lat"), "lng": body.get("lng")}
+        if action == "arrived":
+            row = TD.add_event(track, "arrived", "", by=d.get("name"), when=now)
+        elif action == "failed":
+            if not note:
+                raise TrackError("Say why it couldn't be delivered (the customer sees it).")
+            row = TD.add_event(track, "failed", note, by=d.get("name"), when=now)
+        elif action == "delivered":
+            name = str(body.get("received_by") or "").strip()[:80]
+            cond = body.get("condition") if body.get("condition") in TD.POD_CONDITIONS else "Good"
+            if len(name) < 2:
+                raise TrackError("Type the name of the person who received it.")
+            issues = [{"sku": i.get("sku"), "description": str(i.get("description") or "")[:120],
+                       "qty": TD.num(i.get("qty")), "kind": cond.lower()}
+                      for i in body.get("issues") or [] if TD.num(i.get("qty")) > 0][:30]
+            if cond in ("Short", "Damaged") and not issues:
+                raise TrackError("Enter how many were short or damaged.")
+            if cond != "Good" and not note:
+                raise TrackError("Write a short note about the problem.")
+            sig = str(body.get("signature") or "")
+            if sig and (not sig.startswith("data:image/png;base64,") or len(sig) > 200_000):
+                sig = ""
+            pod = {"received_by": name, "condition": cond, "issues": issues, "note": note, "signature": sig,
+                   "photo_path": self._photo(oid, body.get("photo")), "at": now.isoformat(), "by": d.get("name"),
+                   "trip_id": t["trip_id"], **where}
+            if cond == "Rejected":
+                row = TD.add_event(track, "failed", f"Rejected by the customer: {note}", by=d.get("name"), when=now)
+            else:
+                row = TD.add_event(track, "delivered", note, by=d.get("name"), when=now, received_by=name)
+            row["pod"] = pod
+        else:
+            raise TrackError("Unknown step.")
+        row["trip_id"] = t["trip_id"]
+        self._save_track(oid, row)
+        return self.driver_trips(body)
+
+
 STATIC = {"/manifest.json": "application/manifest+json", "/icon-192.png": "image/png", "/icon-512.png": "image/png",
           "/apple-touch-icon.png": "image/png", "/logo.png": "image/png"}
 
@@ -167,6 +358,10 @@ STATIC = {"/manifest.json": "application/manifest+json", "/icon-192.png": "image
 def company() -> dict:
     return {"name": os.environ.get("COMPANY_NAME") or "INVENTRA", "phone": os.environ.get("COMPANY_PHONE") or "",
             "email": os.environ.get("COMPANY_EMAIL") or "", "whatsapp": os.environ.get("COMPANY_WHATSAPP") or ""}
+
+
+class FullTracker(QuotePortal, SupplierPortal, Warehouse, Drivers, Tracker):
+    pass
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -178,7 +373,7 @@ class Handler(BaseHTTPRequestHandler):
     def ensure(cls):
         if cls.tracker is None:
             try:
-                cls.tracker = Tracker()
+                cls.tracker = FullTracker()
                 cls.startup_error = None
             except Exception as e:
                 cls.startup_error = f"{type(e).__name__}: {e}"[:200]
@@ -212,7 +407,7 @@ class Handler(BaseHTTPRequestHandler):
         return (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
 
     def _fail(self, e):
-        if isinstance(e, TrackError):
+        if isinstance(e, (TrackError, WarehouseError, SupplierError, QuoteError)):
             return self._send(e.status, {"error": str(e)})
         log.exception("tracking request failed")
         return self._send(503, {"error": "Tracking is not available right now. Please try again in a minute."})
@@ -221,6 +416,39 @@ class Handler(BaseHTTPRequestHandler):
         path, _, query = self.path.partition("?")
         if path in ("/", "/index.html") or path.startswith("/o/"):
             return self._page()
+        if path.startswith("/q/"):
+            c = company()
+            page = (HERE / "quote_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"]).replace(
+                "{{COMPANY_JSON}}", json.dumps(c).replace("</", "<\\/"))
+            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+        if path == "/api/quote":
+            key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
+            if not self.ensure():
+                return self._send(503, {"error": "Not available right now."})
+            try:
+                return self._send(200, self.tracker.quote_view(key, self._ip()))
+            except Exception as e:
+                return self._fail(e)
+        if path.startswith("/s/"):
+            c = company()
+            page = (HERE / "supplier_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"])
+            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+        if path == "/api/supplier":
+            key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
+            if not self.ensure():
+                return self._send(503, {"error": "Not available right now."})
+            try:
+                return self._send(200, self.tracker.portal(key, self._ip()))
+            except Exception as e:
+                return self._fail(e)
+        if path in ("/warehouse", "/warehouse/"):
+            c = company()
+            page = (HERE / "warehouse_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"])
+            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+        if path in ("/driver", "/driver/"):
+            c = company()
+            page = (HERE / "driver_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"])
+            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
         if path in STATIC:
             f = HERE / path.lstrip("/")
             return self._send(200, f.read_bytes(), STATIC[path]) if f.is_file() else self._send(404, {"error": "Not found"})
@@ -253,7 +481,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             n = int(self.headers.get("Content-Length") or 0)
-            body = json.loads(self.rfile.read(min(n, 5_000)) or b"{}")
+            body = json.loads(self.rfile.read(min(n, 8_000_000)) or b"{}")
             if not isinstance(body, dict):
                 raise ValueError
         except ValueError:
@@ -264,6 +492,34 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if path == "/api/lookup":
                 return self._send(200, self.tracker.lookup(body, self._ip()))
+            if path == "/api/quote/accept":
+                return self._send(200, self.tracker.quote_accept(body, self._ip()))
+            if path == "/api/quote/decline":
+                return self._send(200, self.tracker.quote_decline(body, self._ip()))
+            if path == "/api/supplier/po":
+                return self._send(200, self.tracker.portal_po(body, self._ip()))
+            if path == "/api/supplier/doc":
+                return self._send(200, self.tracker.portal_doc(body, self._ip()))
+            if path == "/api/supplier/quote":
+                return self._send(200, self.tracker.portal_quote(body, self._ip()))
+            if path.startswith("/api/wh/"):
+                act = path[len("/api/wh/"):]
+                t = self.tracker
+                fn = {"login": lambda: t.wh_login(body, self._ip()), "lookup": lambda: t.wh_lookup(body),
+                      "bins": lambda: t.wh_bins(body), "orders": lambda: t.wh_orders(body), "pick": lambda: t.wh_pick(body),
+                      "po": lambda: t.wh_po(body), "receive": lambda: t.wh_receive(body), "move": lambda: t.wh_move(body),
+                      "count": lambda: t.wh_count(body)}.get(act)
+                if not fn:
+                    return self._send(404, {"error": "Not found"})
+                return self._send(200, fn())
+            if path == "/api/driver/login":
+                return self._send(200, self.tracker.driver_login(body, self._ip()))
+            if path == "/api/driver/trips":
+                return self._send(200, self.tracker.driver_trips(body))
+            if path == "/api/driver/trip":
+                return self._send(200, self.tracker.driver_trip(body))
+            if path == "/api/driver/stop":
+                return self._send(200, self.tracker.driver_stop(body))
             if path == "/api/confirm":
                 return self._send(200, dict(self.tracker.confirm(body, self._ip()),
                                             message="Thank you! We've noted that you received your order."))

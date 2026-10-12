@@ -4,7 +4,8 @@ Customers open a link (or scan the QR code on their delivery note) and see where
 **Order received → Being prepared → Dispatched → On the way → Delivered**, plus the border for cross-border orders.
 They can confirm they received it and rate the delivery. They never see prices or other customers.
 
-Staff update deliveries in the desktop app: **Dispatch > Order tracking**.
+Staff follow every order in the desktop app **Order Tracking** (its own card on the Home screen).
+Drivers record their deliveries on their phones at **YOUR-LINK/driver**.
 
 ## 1. Update the database (once)
 In INVENTRA: **Settings > Business data > Fix database access**. Paste in Supabase (Ctrl+V) and click **Run**.
@@ -23,7 +24,7 @@ This adds the `order_tracking` table. Until then customers only see "received" a
 5. When it is live, open `https://YOUR-LINK/api/health`: it should say `"ok": true`.
 
 ## 3. Tell INVENTRA the link
-Dispatch > Order tracking > **Website…** → paste the link (e.g. `https://inventra-track.onrender.com`) → Save.
+Order Tracking > Tracking website & drivers > **Set the link…** → paste the link (e.g. `https://inventra-track.onrender.com`) → Save.
 From then on:
 - **Copy link / Send to customer** on the Order tracking page gives each order its own link.
 - Delivery notes print a QR code to that order's tracking page.
@@ -36,3 +37,32 @@ From then on:
 ## Updating files later
 Upload the changed files to the same repository; the host restarts by itself. `tracking_domain.py` must be the same
 file as `tracking_domain.py` in the INVENTRA folder.
+
+## Drivers (proof of delivery on the phone)
+1. Order Tracking > **Tracking website & drivers** > **+ Add driver** (or use the drivers from Transport > Fleet).
+2. Double-click the driver > **Set PIN** (4 to 8 digits). Tell the driver in person.
+3. The driver opens **YOUR-LINK/driver** on their phone, signs in with their name and PIN, and adds it to the
+   Home Screen. Their trips appear once the office plans them (Order Tracking > **Delivery trips**).
+4. On the road they tap **Everything is loaded**, **I'm leaving now**, then per stop **I've arrived** and
+   **Delivered** (name, condition, signature on the screen, photo) or **Delivery failed** (why).
+   The customer's tracking page and the office see each step at once.
+
+## Warehouse on the phone (scanning)
+Warehouse staff open **YOUR-LINK/warehouse** on a phone (or a cheap Android scanner) and sign in with their normal
+INVENTRA username and password. What they can do follows their job role:
+- **Pick & pack** (Dispatch officer, Logistics officer, Stock controller): the pick list with bins; scan each product
+  or serial number; wrong items, wrong serials and short picks are refused; "Packed" tells the customer and fills in
+  the serial numbers when the order is dispatched in INVENTRA.
+- **Goods received** (Stock controller, Logistics officer): scan what arrived against the purchase order; shortages,
+  extras and damage become exceptions in the Control Tower.
+- **Put away / move** (Stock controller): scan the product, then the bin.
+- **Count a bin** (Stock controller): differences go to Stock Control for approval.
+- **Look up**: scan anything to see what and where it is.
+The camera scans barcodes on Android (Chrome) and iPhone; a USB or Bluetooth scanner also works (it types into the box).
+Print bin labels with their bin code as a barcode or QR code.
+
+## Files to upload
+`track_server.py`, `warehouse.py`, `track_page.html`, `driver_page.html`, `warehouse_page.html`, `tracking_domain.py`,
+`inventra_stock.py`, `inventra_sku.py`, `inventra_bins.py`, `inventra_quality.py`, `requirements.txt`, `Procfile`,
+`manifest.json`, `logo.png`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
+The shared files come from the INVENTRA folder: run `python sync_web_files.py` there first so they are up to date.

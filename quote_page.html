@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="robots" content="noindex">
+<title>Your quote · {{COMPANY}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A; --muted:#5B6474;
+          --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; }
+  }
+  * { box-sizing:border-box; border-radius:0; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); }
+  button, input, textarea { font:inherit; color:inherit; }
+  .bar { background:var(--navy); color:#fff; padding:12px 16px; }
+  .bar .in { max-width:720px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .bar img { height:38px; } .bar .co { font-size:11px; letter-spacing:.16em; text-transform:uppercase; opacity:.75; } .bar .t { font-weight:600; }
+  main { max-width:720px; margin:0 auto; padding:16px 16px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:16px; margin-bottom:12px; }
+  h2 { margin:0 0 4px; font-size:20px; } .sub { color:var(--muted); font-size:13px; margin:0 0 10px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; }
+  th, td { padding:8px 6px; border-top:1px solid var(--line); } td.n, th.n { text-align:right; white-space:nowrap; }
+  tr.tot td { font-weight:700; } tr.grand td { font-size:17px; font-weight:700; border-top:2px solid var(--ink); }
+  label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; }
+  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; }
+  .btn { display:block; width:100%; border:0; background:var(--green); color:#fff; font-weight:600; padding:14px; cursor:pointer; margin-top:12px; font-size:16px; text-align:center; text-decoration:none; }
+  .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); } .btn.navy { background:var(--navy); }
+  .msg { padding:10px 12px; margin-bottom:12px; } .msg.err { background:var(--err-bg); color:var(--err-ink); } .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .pill { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 7px; background:var(--soft); }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in"><img src="/logo.png" alt="" onerror="this.remove()">
+  <div><div class="co">{{COMPANY}}</div><div class="t">Your quote</div></div></div></header>
+<main>
+  <div class="msg ok hidden" id="ok"></div><div class="msg err hidden" id="err"></div>
+  <div id="q"></div>
+</main>
+<script>
+const CO = {{COMPANY_JSON}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const R = v => "R " + Number(v || 0).toLocaleString("en-ZA", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const key = decodeURIComponent((location.pathname.match(/^\/q\/([^/]+)/) || [])[1] || "");
+function say(t, bad) { const m = $(bad ? "err" : "ok"); $(bad ? "ok" : "err").classList.add("hidden"); m.textContent = t; m.classList.remove("hidden"); window.scrollTo(0, 0); }
+async function post(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({key}, body))});
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(d.error || "Not available right now. Please try again.");
+  return d;
+}
+function render(q) {
+  if (q.message) say(q.message);
+  const open = ["Draft", "Sent"].includes(q.status);
+  $("q").innerHTML = `<div class="card"><span class="pill">${esc(q.status)}</span><h2 style="margin-top:6px">Quote ${esc(q.quote_id)}</h2>
+    <p class="sub">For ${esc(q.client)} · valid until ${esc(q.valid_until)}</p>
+    <table><tr><th>Item</th><th class="n">Qty</th><th class="n">Unit (excl VAT)</th><th class="n">Total</th></tr>
+    ${q.lines.map(l => `<tr><td>${esc(l.description)}</td><td class="n">${esc(l.qty)}</td><td class="n">${R(l.price)}</td><td class="n">${R(l.total)}</td></tr>`).join("")}
+    <tr class="tot"><td colspan="3">Subtotal (excl VAT)</td><td class="n">${R(q.totals.subtotal)}</td></tr>
+    <tr><td colspan="3">VAT 15%</td><td class="n">${R(q.totals.vat)}</td></tr>
+    <tr class="grand"><td colspan="3">Total</td><td class="n">${R(q.totals.total)}</td></tr></table>
+    ${q.notes ? `<p class="sub" style="margin-top:10px">${esc(q.notes)}</p>` : ""}</div>` +
+    (open ? `<div class="card"><h2>Accept this quote</h2><p class="sub">Accepting places the order: we start preparing it right away.</p>
+      <label for="name">Your name</label><input id="name" autocomplete="name">
+      <label for="ref">Your order or reference number (optional)</label><input id="ref">
+      <button class="btn" id="acc">Accept and place the order</button>
+      <details style="margin-top:14px"><summary class="sub" style="cursor:pointer">Not going ahead?</summary>
+        <label for="why">Tell us why (optional)</label><textarea id="why" rows="2"></textarea>
+        <button class="btn ghost" id="dec">Decline the quote</button></details></div>` : "") +
+    (q.track ? `<a class="btn navy" href="/o/${esc(q.track)}">Follow your order ${esc(q.order_id)}</a>` : "") +
+    (q.status === "Expired" ? `<div class="card"><p class="sub" style="margin:0">This quote has expired. ${CO.phone ? "Call us on " + esc(CO.phone) + " for a new one." : "Ask us for a new one."}</p></div>` : "");
+  if (open) {
+    $("acc").onclick = async () => { try { render(await post("/api/quote/accept", {name: $("name").value, ref: $("ref").value})); } catch (e) { say(e.message, true); } };
+    $("dec").onclick = async () => { try { render(await post("/api/quote/decline", {reason: $("why").value})); } catch (e) { say(e.message, true); } };
+  }
+}
+(async () => {
+  try { const r = await fetch("/api/quote?k=" + encodeURIComponent(key)); const d = await r.json(); if (!r.ok) throw new Error(d.error); render(d); }
+  catch (e) { say(e.message || "This link isn't valid.", true); }
+})();
+</script>
+</body>
+</html>
