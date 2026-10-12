@@ -61,8 +61,14 @@ INVENTRA username and password. What they can do follows their job role:
 The camera scans barcodes on Android (Chrome) and iPhone; a USB or Bluetooth scanner also works (it types into the box).
 Print bin labels with their bin code as a barcode or QR code.
 
+## Suppliers and customer quotes
+- **Supplier portal**: Purchasing > Suppliers > right-click > **Supplier portal link** gives each supplier a private
+  link (YOUR-LINK/s/...). They confirm delivery dates, upload invoices and answer quote requests online.
+- **Customer quotes**: Sales > Quotes > send the quote; the customer opens YOUR-LINK/q/... and accepts it: the order is
+  created at once.
+
 ## Files to upload
-`track_server.py`, `warehouse.py`, `track_page.html`, `driver_page.html`, `warehouse_page.html`, `tracking_domain.py`,
-`inventra_stock.py`, `inventra_sku.py`, `inventra_bins.py`, `inventra_quality.py`, `requirements.txt`, `Procfile`,
+`track_server.py`, `warehouse.py`, `supplier.py`, `quotes_web.py`, `supplier_page.html`, `quote_page.html`, `track_page.html`, `driver_page.html`, `warehouse_page.html`, `tracking_domain.py`,
+`inventra_stock.py`, `inventra_sku.py`, `inventra_bins.py`, `inventra_quality.py`, `sales_quotes.py`, `requirements.txt`, `Procfile`,
 `manifest.json`, `logo.png`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
 The shared files come from the INVENTRA folder: run `python sync_web_files.py` there first so they are up to date.
