@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Track order">
+<meta name="robots" content="noindex">
+<title>Track your order · {{COMPANY}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#052B63; --navy-2:#0A3A80; --green:#2F8F2A; --green-2:#5DB032; --red:#B42318; --amber:#B45309;
+    --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A; --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4;
+    --ok-bg:#EAF4E3; --ok-ink:#2F6B16; --err-bg:#FBEAE8; --err-ink:#8A1C12; --warn-bg:#FDF2E3; --warn-ink:#8A4508;
+    --info-bg:#E4ECF8; --info-ink:#0A3A80; --btn:#052B63;
+    --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --ok-bg:#15281A; --ok-ink:#93D46E; --err-bg:#2E1513; --err-ink:#F5A39A; --warn-bg:#2C1F0C; --warn-ink:#F3C27A;
+            --info-bg:#13223D; --info-ink:#A9C2EE; --btn:#0A3A80; }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; border-radius:0; }
+  html { -webkit-text-size-adjust:100%; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); min-height:100vh;
+         background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px; }
+  button, input, textarea { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+
+  /* app bar with the cube pattern */
+  .appbar { background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.07'%3E%3Cpath d='M28 0l28 16v32L28 64 0 48V16z'/%3E%3Cpath d='M28 32l28-16M28 32L0 16M28 32v32'/%3E%3C/g%3E%3C/svg%3E"); }
+  .appbar .in { max-width:620px; margin:0 auto; display:flex; align-items:center; gap:12px; }
+  .appbar .logo { height:40px; width:auto; flex:none; display:block; }
+  .appbar .co { font-size:11px; font-weight:600; letter-spacing:.16em; text-transform:uppercase; opacity:.72;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .appbar .ttl { font-size:16px; font-weight:600; }
+  .appbar .grow { flex:1; min-width:0; }
+  .appbar .link { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:7px 12px;
+                  font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+
+  main { max-width:620px; margin:0 auto; padding:16px 16px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); padding:18px; margin-bottom:14px; }
+  .card h2 { margin:0 0 4px; font-size:17px; }
+  .card h3 { margin:0 0 10px; font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:0 0 14px; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; }
+  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; }
+  input:focus, textarea:focus { outline:2px solid var(--navy-2); outline-offset:-1px; }
+  textarea { min-height:70px; resize:vertical; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:0; background:var(--btn);
+         color:#fff; font-weight:600; padding:14px; margin-top:16px; cursor:pointer; font-size:15px; text-decoration:none; }
+  .btn:active { filter:brightness(1.15); }
+  .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn.green { background:var(--green); }
+  .btn[disabled] { opacity:.6; cursor:wait; }
+  .msg { padding:10px 12px; font-size:14px; margin-top:12px; }
+  .msg.err { background:var(--err-bg); color:var(--err-ink); }
+  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .msg.warn { background:var(--warn-bg); color:var(--warn-ink); }
+  .msg.info { background:var(--info-bg); color:var(--info-ink); }
+
+  /* recent orders on this phone */
+  .recent a { display:flex; justify-content:space-between; gap:10px; padding:12px 0; border-top:1px solid var(--line);
+              color:var(--ink); text-decoration:none; }
+  .recent a:first-of-type { border-top:0; }
+  .recent small { color:var(--muted); }
+
+  /* hero */
+  .hero { background:var(--navy); color:#fff; padding:20px 18px 22px; margin-bottom:14px; position:relative; overflow:hidden; }
+  .hero::after { content:""; position:absolute; inset:0; pointer-events:none;
+                 background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='64' viewBox='0 0 56 64'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='.06'%3E%3Cpath d='M28 0l28 16v32L28 64 0 48V16z'/%3E%3Cpath d='M28 32l28-16M28 32L0 16M28 32v32'/%3E%3C/g%3E%3C/svg%3E"); }
+  .hero > * { position:relative; z-index:1; }
+  .hero .ord { font-size:12px; letter-spacing:.12em; text-transform:uppercase; opacity:.75; }
+  .hero .head { font-size:24px; font-weight:700; line-height:1.25; margin:6px 0 4px; }
+  .hero .meta { font-size:13px; opacity:.85; }
+  .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+          padding:4px 8px; margin-top:10px; background:rgba(255,255,255,.14); }
+  .pill.done { background:var(--green-2); color:#08230A; }
+  .pill.bad { background:#F5A39A; color:#3A0A05; }
+  .eta { margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.2); display:flex; justify-content:space-between;
+         gap:12px; font-size:13px; }
+  .eta b { display:block; font-size:16px; }
+
+  /* the five steps */
+  .steps { display:grid; grid-template-columns:repeat(5, 1fr); gap:0; margin:4px 0 2px; }
+  .step { position:relative; text-align:center; padding-top:30px; font-size:12px; color:var(--muted); line-height:1.3; }
+  .step::before { content:""; position:absolute; top:11px; left:0; right:0; height:4px; background:var(--soft); }
+  .step:first-child::before { left:50%; } .step:last-child::before { right:50%; }
+  .step.done::before { background:var(--green); }
+  .step.current::before { background:linear-gradient(90deg, var(--green) 50%, var(--soft) 50%); }
+  .step:last-child.current::before, .step:last-child.done::before { background:var(--green); }
+  .step .dot { position:absolute; top:3px; left:50%; width:20px; height:20px; margin-left:-10px; background:var(--card);
+               border:3px solid var(--line); }
+  .step.done .dot { background:var(--green); border-color:var(--green); }
+  .step.current .dot { background:var(--card); border-color:var(--green); box-shadow:0 0 0 4px rgba(47,143,42,.18); }
+  .step.done .dot::after { content:""; position:absolute; left:4px; top:0; width:5px; height:10px; border:solid #fff;
+                           border-width:0 2px 2px 0; transform:rotate(45deg); }
+  .step b { display:block; color:var(--ink); font-weight:600; }
+  .step.todo b { color:var(--muted); font-weight:500; }
+  .step small { display:block; font-size:11px; }
+
+  /* timeline */
+  .tl { list-style:none; margin:0; padding:0; }
+  .tl li { position:relative; padding:0 0 16px 26px; }
+  .tl li::before { content:""; position:absolute; left:5px; top:6px; bottom:-6px; width:2px; background:var(--line); }
+  .tl li:last-child::before { display:none; }
+  .tl li::after { content:""; position:absolute; left:0; top:4px; width:12px; height:12px; background:var(--card);
+                  border:2px solid var(--muted); }
+  .tl li:first-child::after { background:var(--green); border-color:var(--green); }
+  .tl li.bad::after { background:var(--red); border-color:var(--red); }
+  .tl .t { font-weight:600; }
+  .tl .w { font-size:12px; color:var(--muted); }
+  .tl .d { font-size:14px; color:var(--muted); }
+
+  .items div { display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line); }
+  .items div:first-child { border-top:0; }
+  .items span:last-child { color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+  .stars { display:flex; gap:6px; margin-top:4px; }
+  .stars button { flex:1; height:44px; border:1px solid var(--line); background:var(--card); cursor:pointer; font-size:18px;
+                  color:var(--muted); }
+  .stars button.on { background:#F3B33D; border-color:#F3B33D; color:#3B2600; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .row3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .row3 .btn, .row2 .btn { margin-top:8px; padding:12px 8px; font-size:14px; }
+  .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:6px; }
+  .skeleton { height:16px; background:var(--soft); margin:10px 0; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity:.5; } }
+
+  @media (max-width:380px) {
+    main { padding:12px 12px 32px; }
+    .card { padding:14px; }
+    .hero .head { font-size:21px; }
+    .step { font-size:10.5px; }
+    .step small { display:none; }
+    .row3 { grid-template-columns:1fr; }
+    .appbar .logo { height:34px; }
+  }
+  @media (max-width:330px) { .appbar .co { display:none; } }
+</style>
+</head>
+<body>
+<header class="appbar"><div class="in">
+  <img class="logo" src="/logo.png" alt="" onerror="this.remove()">
+  <div class="grow"><div class="co">{{COMPANY}}</div><div class="ttl">Order tracking</div></div>
+  <button class="link hidden" id="another" type="button">Track another</button>
+</div></header>
+
+<main>
+  <!-- find an order -->
+  <section id="find">
+    <div class="card">
+      <h2>Track your order</h2>
+      <p class="sub">Type your order number and the phone number or e-mail address we have for you.</p>
+      <form id="form" autocomplete="on">
+        <label for="order">Order number</label>
+        <input id="order" name="order" inputmode="numeric" autocomplete="off" placeholder="e.g. 261001212803654" required>
+        <label for="contact">Phone number or e-mail</label>
+        <input id="contact" name="contact" autocomplete="tel" placeholder="e.g. 082 123 4567" required>
+        <button class="btn" id="go" type="submit">Track my order</button>
+        <div class="msg err hidden" id="findErr"></div>
+      </form>
+    </div>
+    <div class="card hidden" id="recentCard">
+      <h3>Your orders on this phone</h3>
+      <div class="recent" id="recent"></div>
+    </div>
+    <p class="foot">Got a tracking link from us? Just open it: no need to type anything.</p>
+  </section>
+
+  <!-- one order -->
+  <section id="result" class="hidden">
+    <div class="hero">
+      <div class="ord" id="hOrder"></div>
+      <div class="head" id="hHead"></div>
+      <div class="meta" id="hMeta"></div>
+      <span class="pill" id="hPill"></span>
+      <div class="eta hidden" id="hEta"></div>
+    </div>
+    <div class="card"><div class="steps" id="steps"></div></div>
+    <div class="msg warn hidden" id="problem" style="margin:0 0 14px"></div>
+    <div class="card hidden" id="noteCard"><h3>Message from us</h3><div id="note"></div></div>
+    <div class="card hidden" id="borderCard"><h3>Cross-border</h3><div id="border"></div></div>
+    <div class="msg ok hidden" id="thanks" style="margin:0 0 14px"></div>
+    <div class="card"><h3>What happened</h3><ul class="tl" id="tl"></ul></div>
+    <div class="card hidden" id="confirmCard">
+      <h2 id="cTitle">Received your order?</h2>
+      <p class="sub" id="cSub">Let us know it arrived safely. It takes ten seconds.</p>
+      <label for="cName">Your name</label>
+      <input id="cName" autocomplete="name" placeholder="Who received it">
+      <label>How did we do? (optional)</label>
+      <div class="stars" id="stars"></div>
+      <label for="cNote">Anything to add? (optional)</label>
+      <textarea id="cNote" maxlength="300" placeholder="e.g. All good, thank you"></textarea>
+      <button class="btn green" id="cGo" type="button">Yes, I received my order</button>
+      <div class="msg err hidden" id="cErr"></div>
+    </div>
+    <div class="card"><h3>In this order</h3><div class="items" id="items"></div></div>
+    <div class="card">
+      <h3>Questions?</h3>
+      <div class="row3" id="contactBtns"></div>
+      <div class="row2">
+        <button class="btn ghost" id="share" type="button">Share this page</button>
+        <button class="btn ghost" id="refresh" type="button">Refresh</button>
+      </div>
+    </div>
+    <p class="foot" id="foot"></p>
+  </section>
+</main>
+
+<script>
+const CO = {{COMPANY_JSON}};
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let current = null, timer = null, rating = 0;
+
+function show(which) {
+  $("find").classList.toggle("hidden", which !== "find");
+  $("result").classList.toggle("hidden", which !== "result");
+  $("another").classList.toggle("hidden", which !== "result");
+  window.scrollTo(0, 0);
+}
+
+function recent() { try { return JSON.parse(localStorage.getItem("inventra_track") || "[]"); } catch (e) { return []; } }
+function remember(v) {
+  try {
+    const list = recent().filter(r => r.key !== v.key);
+    list.unshift({key: v.key, order: v.order_id, stage: v.stage_label, at: Date.now()});
+    localStorage.setItem("inventra_track", JSON.stringify(list.slice(0, 6)));
+  } catch (e) {}
+}
+function paintRecent() {
+  const list = recent();
+  $("recentCard").classList.toggle("hidden", !list.length);
+  $("recent").innerHTML = list.map(r =>
+    `<a href="/o/${encodeURIComponent(r.key)}"><span>Order ${esc(r.order)}</span><small>${esc(r.stage || "")} ›</small></a>`).join("");
+}
+
+async function api(url, body) {
+  const res = await fetch(url, body ? {method: "POST", headers: {"Content-Type": "application/json"},
+                                       body: JSON.stringify(body)} : {});
+  let data = {};
+  try { data = await res.json(); } catch (e) {}
+  if (!res.ok) throw new Error(data.error || "Tracking isn't available right now. Please try again.");
+  return data;
+}
+
+function render(v) {
+  current = v;
+  remember(v);
+  if (location.pathname !== "/o/" + v.key) history.replaceState(null, "", "/o/" + v.key);
+  $("hOrder").textContent = "Order " + v.order_id;
+  $("hHead").textContent = v.headline;
+  $("hMeta").textContent = [v.client, v.ordered ? "ordered " + v.ordered : ""].filter(Boolean).join(" · ");
+  const pill = $("hPill");
+  pill.textContent = v.stage_label;
+  pill.className = "pill" + (v.stage === "delivered" ? " done" : v.stage === "cancelled" || v.problem ? " bad" : "");
+  const eta = [];
+  if (v.eta) eta.push(`<div>Expected<b>${esc(v.eta)}</b></div>`);
+  if (v.courier || v.waybill) eta.push(`<div style="text-align:right">${esc(v.courier || "Courier")}<b>${esc(v.waybill || "")}</b></div>`);
+  if (v.stage === "delivered" && v.received_by) eta.push(`<div>Received by<b>${esc(v.received_by)}</b></div>`);
+  $("hEta").innerHTML = eta.join("");
+  $("hEta").classList.toggle("hidden", !eta.length);
+
+  $("steps").innerHTML = v.steps.map(s => `<div class="step ${s.current ? "current" : s.done ? "done" : "todo"}">
+      <span class="dot"></span><b>${esc(s.label)}</b><small>${esc((s.when || "").replace(/^\w+ /, "").replace(/ \d{4}/, ""))}</small></div>`).join("");
+
+  const last = v.events[0] || {};
+  $("problem").classList.toggle("hidden", !v.problem);
+  $("problem").textContent = v.problem ? (last.title + (last.detail ? ": " + last.detail : "")) : "";
+  $("noteCard").classList.toggle("hidden", !v.message);
+  $("note").textContent = v.message || "";
+  $("borderCard").classList.toggle("hidden", !v.border);
+  if (v.border) $("border").innerHTML = `<b>${esc(v.border.status)}</b><br><span class="sub">${esc([v.border.border_post,
+      v.border.to ? "to " + v.border.to : ""].filter(Boolean).join(" · "))}</span>`;
+
+  $("tl").innerHTML = v.events.map(e => `<li class="${["failed", "delayed", "cancelled"].includes(e.kind) ? "bad" : ""}">
+      <div class="t">${esc(e.title)}</div>${e.when ? `<div class="w">${esc(e.when)}</div>` : ""}
+      ${e.detail ? `<div class="d">${esc(e.detail)}</div>` : ""}</li>`).join("");
+  $("items").innerHTML = v.items.length ? v.items.map(i => `<div><span>${esc(i.description)}</span><span>× ${esc(i.qty)}</span></div>`).join("")
+                                        : `<div><span class="sub">No items listed</span></div>`;
+  $("confirmCard").classList.toggle("hidden", !v.can_confirm);
+  const done = v.stage === "delivered";
+  $("cTitle").textContent = done ? "How did we do?" : "Received your order?";
+  $("cSub").textContent = done ? "Your order was delivered. Confirm you have it and rate the delivery."
+                               : "Let us know it arrived safely. It takes ten seconds.";
+  $("thanks").classList.toggle("hidden", !v.confirmed);
+  $("thanks").textContent = v.confirmed ? "Thank you: you confirmed that you received this order." : "";
+  $("foot").textContent = `Updated ${v.updated}` + (["delivered", "cancelled"].includes(v.stage) ? "" : " · this page refreshes by itself");
+  show("result");
+  clearInterval(timer);
+  if (!["delivered", "cancelled"].includes(v.stage)) timer = setInterval(() => { if (!document.hidden) load(v.key, true); }, 60000);
+}
+
+async function load(key, quiet) {
+  if (!quiet) { show("result"); $("hHead").textContent = "Finding your order…"; $("tl").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>'; }
+  try { render(await api("/api/track?k=" + encodeURIComponent(key))); }
+  catch (e) { if (!quiet) { show("find"); $("findErr").textContent = e.message; $("findErr").classList.remove("hidden"); } }
+}
+
+$("form").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  const go = $("go");
+  go.disabled = true; go.textContent = "Looking…";
+  $("findErr").classList.add("hidden");
+  try { render(await api("/api/lookup", {order: $("order").value, contact: $("contact").value})); }
+  catch (e) { $("findErr").textContent = e.message; $("findErr").classList.remove("hidden"); }
+  finally { go.disabled = false; go.textContent = "Track my order"; }
+});
+
+for (let i = 1; i <= 5; i++) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = "★"; b.setAttribute("aria-label", i + " out of 5");
+  b.onclick = () => { rating = rating === i ? 0 : i; [...$("stars").children].forEach((x, j) => x.classList.toggle("on", j < rating)); };
+  $("stars").appendChild(b);
+}
+$("cGo").onclick = async () => {
+  const btn = $("cGo");
+  btn.disabled = true;
+  $("cErr").classList.add("hidden");
+  try {
+    render(await api("/api/confirm", {key: current.key, name: $("cName").value, rating, feedback: $("cNote").value}));
+  } catch (e) { $("cErr").textContent = e.message; $("cErr").classList.remove("hidden"); }
+  finally { btn.disabled = false; }
+};
+$("another").onclick = () => { clearInterval(timer); history.replaceState(null, "", "/"); paintRecent(); show("find"); };
+$("refresh").onclick = () => current && load(current.key, true);
+$("share").onclick = async () => {
+  const url = location.origin + "/o/" + current.key;
+  try {
+    if (navigator.share) await navigator.share({title: "Order " + current.order_id, url});
+    else { await navigator.clipboard.writeText(url); $("share").textContent = "Link copied"; setTimeout(() => $("share").textContent = "Share this page", 2000); }
+  } catch (e) {}
+};
+(function contacts() {
+  const b = [];
+  if (CO.phone) b.push(`<a class="btn ghost" href="tel:${esc(CO.phone.replace(/\s/g, ""))}">Call us</a>`);
+  if (CO.whatsapp) b.push(`<a class="btn ghost" target="_blank" rel="noopener" href="https://wa.me/${esc(CO.whatsapp.replace(/\D/g, ""))}">WhatsApp</a>`);
+  if (CO.email) b.push(`<a class="btn ghost" href="mailto:${esc(CO.email)}">E-mail</a>`);
+  $("contactBtns").innerHTML = b.join("") || `<p class="sub" style="grid-column:1/-1;margin:0">Reply to the message we sent you.</p>`;
+  if (CO.whatsapp) $("contactBtns").querySelector('[href^="https://wa.me"]').href += "?text=" + encodeURIComponent("Hi, about my order ");
+})();
+
+const m = location.pathname.match(/^\/o\/([^/]+)/);
+const k = m ? decodeURIComponent(m[1]) : new URLSearchParams(location.search).get("k");
+if (k) load(k); else { paintRecent(); show("find"); }
+</script>
+</body>
+</html>
