@@ -344,7 +344,7 @@ function render(v) {
 }
 
 let map = null, marker = null;
-function leaflet() {
+function loadLeaflet() {
   if (window.L) return Promise.resolve();
   return new Promise((ok, bad) => {
     const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
@@ -372,7 +372,7 @@ function paintVehicle(d) {
   $("veh").innerHTML = h;
   const show = d.kind === "vehicle" && d.lat != null;
   $("map").classList.toggle("hidden", !show);
-  if (show) leaflet().then(() => {
+  if (show) loadLeaflet().then(() => {
     const dest = d.dest_lat != null ? [d.dest_lat, d.dest_lng] : null;
     if (!map) { map = L.map("map", {zoomControl: true, attributionControl: true}).setView([d.lat, d.lng], 13);
       const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 18, attribution: "© OpenStreetMap"}).addTo(map);

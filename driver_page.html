@@ -61,6 +61,7 @@
   .statement { font-size:14px; margin:12px 0 0; padding:10px 12px; background:var(--soft); }
   .signcard .item { font-size:14px; }
   .gps { display:flex; gap:8px; align-items:center; font-size:13px; padding:8px 10px; margin:10px 0 0; background:var(--soft); }
+  .locoff { background:var(--err-bg); color:var(--err-ink); border-color:#B42318; } .locoff ol { margin:6px 0 10px; padding-left:20px; }
   .gps .dot { width:10px; height:10px; flex:none; background:#94A0B4; }
   .gps.ok { background:var(--ok-bg); color:var(--ok-ink); } .gps.ok .dot { background:#2F8F2A; }
   .gps.warn { background:var(--err-bg); color:var(--err-ink); } .gps.warn .dot { background:#B42318; }
@@ -101,6 +102,17 @@
   </section>
 
   <section id="stop" class="hidden">
+    <div class="card locoff hidden" id="locOff">
+      <h2>Switch on location</h2>
+      <p class="sub" style="color:inherit">Deliveries are saved with the phone's location, so it must be allowed for this page.</p>
+      <b>Android (Chrome)</b>
+      <ol><li>Pull down from the top of the screen and switch <b>Location</b> on.</li>
+          <li>Tap the icon left of the web address &gt; <b>Permissions</b> &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
+      <b>iPhone (Safari)</b>
+      <ol><li>Settings &gt; Privacy &amp; Security &gt; <b>Location Services</b> on, and <b>Safari Websites</b> &gt; While Using.</li>
+          <li>Tap <b>aA</b> next to the web address &gt; Website Settings &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
+      <button class="btn" id="locRetry" type="button">I've switched it on: try again</button>
+    </div>
     <div class="card"><h2 id="stopTitle"></h2><p class="sub" id="stopSub"></p>
       <div class="gps" id="gps"><span class="dot"></span><span id="gpsText">Finding your location…</span></div>
       <div id="smap" class="hidden" style="height:210px;margin-top:10px;border:1px solid var(--line)"></div>
@@ -182,6 +194,12 @@ function startGps() {
                                  : "Can't find the location yet: step outside or near a window."; paintGps(); },
     {enableHighAccuracy: true, maximumAge: 10000, timeout: 30000});
 }
+function restartGps() {
+  if (gpsWatch !== null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatch);
+  gpsWatch = null; gpsErr = ""; paintGps();
+  startGps();
+}
+const blocked = () => gpsErr.startsWith("Location is blocked") || gpsErr.startsWith("This phone");
 function distM(a, b) {
   const r = x => x * Math.PI / 180, dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
@@ -189,7 +207,7 @@ function distM(a, b) {
 }
 // ---- a small map of the stop: the delivery point, the 300 m zone, and where the phone is ----
 let smap = null, sDest = null, sMe = null, sAcc = null, sZone = null;
-function leaflet() {
+function loadLeaflet() {
   if (window.L) return Promise.resolve();
   return new Promise((ok, bad) => {
     const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
@@ -201,7 +219,7 @@ function stopMap() {
   const has = s.lat != null && s.lng != null;
   $("smap").classList.toggle("hidden", !has);
   if (!has) return;
-  leaflet().then(() => {
+  loadLeaflet().then(() => {
     const dest = [+s.lat, +s.lng];
     if (!smap) {
       smap = L.map("smap", {zoomControl: true, attributionControl: false}).setView(dest, 16);
@@ -225,6 +243,7 @@ function paintMe() {
 }
 function paintGps() {
   paintMe();
+  $("locOff").classList.toggle("hidden", !blocked());
   [["gps", "gpsText"], ["gps2", "gpsText2"]].forEach(([box, txt]) => {
     let cls = "", t;
     if (gpsErr) { cls = "warn"; t = gpsErr; }
@@ -239,16 +258,24 @@ function paintGps() {
     $(box).className = "gps " + cls; $(txt).textContent = t;
   });
 }
-async function where(need) {
+async function where(need, btn) {
   startGps();
-  const t0 = Date.now();
-  while (Date.now() - t0 < 20000) {             // wait for a good fix (±100 m), at most 20 seconds
-    if (gpsFix && Date.now() - gpsFix.t < 120000 && gpsFix.accuracy <= 100) break;
-    if (gpsErr.startsWith("Location is blocked")) break;
-    await new Promise(r => setTimeout(r, 500));
-  }
+  const t0 = Date.now(), label = btn ? btn.textContent : "";
+  const limit = gpsFix ? 8000 : 25000;           // a rough fix is improved for a few seconds; the first fix may take longer
+  try {
+    while (Date.now() - t0 < limit) {
+      if (gpsFix && Date.now() - gpsFix.t < 120000 && gpsFix.accuracy <= 100) break;
+      if (blocked()) break;
+      if (btn) btn.textContent = gpsFix ? `Getting a precise location… ±${gpsFix.accuracy} m` : "Finding your location…";
+      await new Promise(r => setTimeout(r, 400));
+    }
+  } finally { if (btn) btn.textContent = label; }
   if (gpsFix && Date.now() - gpsFix.t < 300000) return {lat: gpsFix.lat, lng: gpsFix.lng, accuracy: gpsFix.accuracy};
-  if (need) throw new Error(gpsErr || "The location wasn't found. Step outside or near a window and try again.");
+  if (need) {
+    paintGps();
+    throw new Error(blocked() ? "Location is off for this page: switch it on (see the red box at the top) and try again."
+                              : "The phone couldn't find its location. Step outside or near a window, wait a few seconds and try again.");
+  }
   return {};
 }
 async function api(url, body) {
@@ -312,6 +339,7 @@ function showTrips() {
 function showTrip(id) {
   curTrip = data.trips.find(t => t.trip_id === id);
   if (!curTrip) return showTrips();
+  if (curTrip.status !== "Completed") startGps();    // ask for location now, not at the customer's door
   const t = curTrip;
   $("title").textContent = t.trip_id;
   $("tripTitle").textContent = `${t.trip_id} · ${t.status}`;
@@ -448,9 +476,10 @@ async function stopAction(action, extra, quiet) {
   err.classList.add("hidden");
   const btns = [$("arrived"), $("deliver"), $("failed"), $("otherDone")];
   btns.forEach(b => b.disabled = true);
+  const btn = signing ? $("deliver") : {arrived: $("arrived"), failed: $("failed")}[action] || $("otherDone");
   try {
-    if (signing) $("gpsText2").textContent = "Reading the location…";
-    const loc = await where(true);                          // the phone's GPS, read automatically
+    const loc = await where(true, btn);                     // the phone's GPS, read automatically
+    btn.textContent = "Saving…";
     data = await api("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, loc));
     curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
     if (quiet) { curStop = curTrip.stops.find(x => x.order_id === curStop.order_id) || curStop; return; }
@@ -458,9 +487,16 @@ async function stopAction(action, extra, quiet) {
     if (action === "arrived") showStop(curStop.order_id); else showTrip(curTrip.trip_id);
   } catch (e) {
     if (quiet) throw e;
+    if (signing && blocked()) { view("stop"); paintGps(); toast("Switch on location, then let the receiver sign again"); return; }
     err.textContent = e.message; err.classList.remove("hidden"); err.scrollIntoView({block: "center"}); paintGps();
-  } finally { btns.forEach(b => b.disabled = false); }
+  } finally {
+    btns.forEach(b => b.disabled = false);
+    $("arrived").textContent = "I've arrived"; $("failed").textContent = curStop && curStop.kind && curStop.kind !== "Delivery" ? "Couldn't do it" : "Delivery failed";
+    $("deliver").textContent = cond === "Rejected" ? "Sign to refuse" : "Sign & confirm";
+    $("otherDone").textContent = curStop && curStop.kind === "Collection" ? "Collected" : "Done";
+  }
 }
+$("locRetry").onclick = () => { restartGps(); toast("Checking the location…"); };
 $("arrived").onclick = () => stopAction("arrived");
 $("deliver").onclick = () => {
   if (cond !== "Rejected" && inked <= 5) { $("signErr").textContent = "Please sign in the box with your finger."; $("signErr").classList.remove("hidden"); return; }
