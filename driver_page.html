@@ -57,6 +57,13 @@
   .item { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
   .item:first-child { border-top:0; } .item input { width:84px; padding:8px; text-align:right; }
   canvas.sig { width:100%; height:170px; background:#fff; border:1px solid var(--line); touch-action:none; display:block; }
+  canvas.sig.big { height:min(42vh, 320px); border:2px solid var(--navy); }
+  .statement { font-size:14px; margin:12px 0 0; padding:10px 12px; background:var(--soft); }
+  .signcard .item { font-size:14px; }
+  .gps { display:flex; gap:8px; align-items:center; font-size:13px; padding:8px 10px; margin:10px 0 0; background:var(--soft); }
+  .gps .dot { width:10px; height:10px; flex:none; background:#94A0B4; }
+  .gps.ok { background:var(--ok-bg); color:var(--ok-ink); } .gps.ok .dot { background:#2F8F2A; }
+  .gps.warn { background:var(--err-bg); color:var(--err-ink); } .gps.warn .dot { background:#B42318; }
   .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; background:var(--soft); }
   .photo { max-width:100%; max-height:180px; display:block; margin-top:8px; }
   @media (max-width:360px) { main { padding:10px 10px 30px; } .seg button { font-size:12px; } }
@@ -89,33 +96,62 @@
       <button class="btn" id="tripStep" type="button"></button>
       <div class="msg err hidden" id="tripErr"></div>
     </div>
+    <div class="msg ok hidden" id="sharing"></div>
     <div class="card"><h3>Stops</h3><div id="stops"></div></div>
   </section>
 
   <section id="stop" class="hidden">
     <div class="card"><h2 id="stopTitle"></h2><p class="sub" id="stopSub"></p>
+      <div class="gps" id="gps"><span class="dot"></span><span id="gpsText">Finding your location…</span></div>
+      <div id="smap" class="hidden" style="height:210px;margin-top:10px;border:1px solid var(--line)"></div>
       <div class="row2" id="stopLinks"></div>
       <button class="btn ghost" id="arrived" type="button">I've arrived</button>
     </div>
-    <div class="card">
-      <h3>Delivered</h3>
-      <label for="rb">Received by (name)</label><input id="rb" autocomplete="off">
+    <div class="card hidden" id="otherCard">
+      <h3 id="otherTitle">Done</h3>
+      <label for="onote">Note (optional)</label><textarea id="onote" maxlength="300" placeholder="e.g. 3 boxes collected"></textarea>
+      <button class="btn green" id="otherDone" type="button">Done</button>
+    </div>
+    <div class="card" id="podCard">
+      <h3>Hand over the goods</h3>
       <label>Condition</label>
       <div class="seg" id="cond"></div>
       <div id="issueBox" class="hidden"><label>How many were short / damaged?</label><div id="issues"></div></div>
       <label for="note">Note (the customer sees it)</label><textarea id="note" maxlength="300"></textarea>
-      <label>Signature</label>
-      <canvas class="sig" id="sig"></canvas>
-      <div class="row2"><button class="btn ghost" id="sigClear" type="button">Clear</button>
-        <label class="btn ghost" style="margin:8px 0 0">Photo<input id="photo" type="file" accept="image/*" capture="environment" hidden></label></div>
+      <label class="btn ghost" style="margin:12px 0 0">Take a photo (optional)<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
       <img id="photoPrev" class="photo hidden" alt="">
-      <button class="btn green" id="deliver" type="button">Delivered</button>
+      <button class="btn green" id="toSign" type="button">Hand the phone to the receiver to sign →</button>
+      <button class="btn ghost" id="qrBtn" type="button">Receiver signs on their own phone (QR code)</button>
+      <div id="qrBox" class="hidden" style="text-align:center;margin-top:12px">
+        <div id="qr" style="display:inline-block;background:#fff;padding:10px"></div>
+        <p class="sub" style="margin:8px 0 0">The receiver scans this with their phone camera, then signs on their screen.
+          Their phone's location is recorded too. This page updates when they have signed.</p>
+      </div>
       <div class="msg err hidden" id="stopErr"></div>
     </div>
     <div class="card">
       <h3>Couldn't deliver?</h3>
       <textarea id="why" placeholder="e.g. nobody at the site, gate locked"></textarea>
       <button class="btn red" id="failed" type="button">Delivery failed</button>
+    </div>
+  </section>
+
+  <!-- the receiver signs (full screen, the driver hands the phone over) -->
+  <section id="sign" class="hidden">
+    <div class="card signcard">
+      <h3 id="signCo"></h3>
+      <h2>Please sign for your delivery</h2>
+      <p class="sub" id="signOrder"></p>
+      <div id="signItems"></div>
+      <p class="statement" id="signStatement"></p>
+      <label for="rb">Your full name</label><input id="rb" autocomplete="off" autocapitalize="words">
+      <label>Sign with your finger</label>
+      <canvas class="sig big" id="sig"></canvas>
+      <div class="row2"><button class="btn ghost" id="sigClear" type="button">Clear</button>
+        <button class="btn ghost" id="signBack" type="button">Back to the driver</button></div>
+      <div class="gps" id="gps2"><span class="dot"></span><span id="gpsText2">Finding the location…</span></div>
+      <button class="btn green" id="deliver" type="button">Sign &amp; confirm</button>
+      <div class="msg err hidden" id="signErr"></div>
     </div>
   </section>
   <div class="msg ok hidden" id="toast"></div>
@@ -127,17 +163,93 @@ let token = localStorage.getItem("inventra_driver") || "", data = null, curTrip 
 const CONDS = ["Good", "Short", "Damaged", "Rejected"];
 
 function view(id) {
-  ["login", "trips", "trip", "stop"].forEach(v => $(v).classList.toggle("hidden", v !== id));
-  $("out").classList.toggle("hidden", id === "login");
+  ["login", "trips", "trip", "stop", "sign"].forEach(v => $(v).classList.toggle("hidden", v !== id));
+  $("out").classList.toggle("hidden", id === "login" || id === "sign");
   $("back").classList.toggle("hidden", !["trip", "stop"].includes(id));
   window.scrollTo(0, 0);
 }
 function toast(t) { const m = $("toast"); m.textContent = t; m.classList.remove("hidden"); setTimeout(() => m.classList.add("hidden"), 3500); }
-function where() {
-  return new Promise(res => {
-    if (!navigator.geolocation) return res({});
-    navigator.geolocation.getCurrentPosition(p => res({lat: p.coords.latitude, lng: p.coords.longitude}), () => res({}), {timeout: 6000, maximumAge: 60000});
+
+// ---- GPS: read automatically (never typed) and checked against the delivery address ----
+let gpsFix = null, gpsWatch = null, gpsErr = "";
+function startGps() {
+  if (!navigator.geolocation) { gpsErr = "This phone can't share its location."; return paintGps(); }
+  if (gpsWatch !== null) return;
+  gpsWatch = navigator.geolocation.watchPosition(p => {
+      gpsFix = {lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy), t: Date.now()};
+      gpsErr = ""; paintGps(); },
+    e => { gpsErr = e.code === 1 ? "Location is blocked: allow location for this page (tap the lock or \"aA\" next to the web address > Location > Allow)."
+                                 : "Can't find the location yet: step outside or near a window."; paintGps(); },
+    {enableHighAccuracy: true, maximumAge: 10000, timeout: 30000});
+}
+function distM(a, b) {
+  const r = x => x * Math.PI / 180, dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(h));
+}
+// ---- a small map of the stop: the delivery point, the 300 m zone, and where the phone is ----
+let smap = null, sDest = null, sMe = null, sAcc = null, sZone = null;
+function leaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise((ok, bad) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = ok; js.onerror = bad; document.head.appendChild(js);
   });
+}
+function stopMap() {
+  const s = curStop || {};
+  const has = s.lat != null && s.lng != null;
+  $("smap").classList.toggle("hidden", !has);
+  if (!has) return;
+  leaflet().then(() => {
+    const dest = [+s.lat, +s.lng];
+    if (!smap) {
+      smap = L.map("smap", {zoomControl: true, attributionControl: false}).setView(dest, 16);
+      const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(smap);
+      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19});
+      L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(smap);
+      sZone = L.circle(dest, {radius: 300, color: "#2F8F2A", weight: 2, dashArray: "5 4", fillOpacity: .06}).addTo(smap);
+      sDest = L.marker(dest, {icon: L.divIcon({className: "", html: '<div style="background:#052B63;color:#fff;font:700 11px/22px Inter,Arial;text-align:center;width:44px;height:22px">Drop</div>', iconSize: [44, 22], iconAnchor: [22, 22]})}).addTo(smap);
+    } else { sZone.setLatLng(dest); sDest.setLatLng(dest); smap.setView(dest, 16); }
+    setTimeout(() => smap.invalidateSize(), 60);
+    paintMe();
+  }).catch(() => $("smap").classList.add("hidden"));
+}
+function paintMe() {
+  if (!smap || !gpsFix) return;
+  const me = [gpsFix.lat, gpsFix.lng];
+  if (!sMe) { sMe = L.circleMarker(me, {radius: 8, color: "#fff", weight: 3, fillColor: "#2563EB", fillOpacity: 1}).addTo(smap);
+              sAcc = L.circle(me, {radius: gpsFix.accuracy, color: "#2563EB", weight: 1, fillOpacity: .1}).addTo(smap);
+              smap.fitBounds([me, sDest.getLatLng()], {padding: [30, 30], maxZoom: 17}); }
+  else { sMe.setLatLng(me); sAcc.setLatLng(me).setRadius(gpsFix.accuracy); }
+}
+function paintGps() {
+  paintMe();
+  [["gps", "gpsText"], ["gps2", "gpsText2"]].forEach(([box, txt]) => {
+    let cls = "", t;
+    if (gpsErr) { cls = "warn"; t = gpsErr; }
+    else if (!gpsFix) t = "Finding the location…";
+    else {
+      const s = curStop || {}, d = s.lat != null && s.lng != null ? distM(gpsFix, {lat: +s.lat, lng: +s.lng}) : null;
+      const near = d == null || d <= 300 + Math.min(gpsFix.accuracy, 200);
+      t = `Location found (±${gpsFix.accuracy} m)` + (d == null ? "" : ` · ${d < 1000 ? Math.round(d) + " m" : (d / 1000).toFixed(1) + " km"} from the address`) +
+          (near ? "" : " · this is not the delivery address");
+      cls = near ? "ok" : "warn";
+    }
+    $(box).className = "gps " + cls; $(txt).textContent = t;
+  });
+}
+async function where(need) {
+  startGps();
+  const t0 = Date.now();
+  while (Date.now() - t0 < 20000) {             // wait for a good fix (±100 m), at most 20 seconds
+    if (gpsFix && Date.now() - gpsFix.t < 120000 && gpsFix.accuracy <= 100) break;
+    if (gpsErr.startsWith("Location is blocked")) break;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (gpsFix && Date.now() - gpsFix.t < 300000) return {lat: gpsFix.lat, lng: gpsFix.lng, accuracy: gpsFix.accuracy};
+  if (need) throw new Error(gpsErr || "The location wasn't found. Step outside or near a window and try again.");
+  return {};
 }
 async function api(url, body) {
   const res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body || {}))});
@@ -157,7 +269,34 @@ $("go").onclick = async () => {
 $("out").onclick = () => { localStorage.removeItem("inventra_driver"); token = ""; view("login"); };
 $("back").onclick = () => { if (!$("stop").classList.contains("hidden")) showTrip(curTrip.trip_id); else showTrips(); };
 
-async function load() { try { data = await api("/api/driver/trips"); showTrips(); } catch (e) { if (token) toast(e.message); } }
+async function load() { try { data = await api("/api/driver/trips"); showTrips(); share(); } catch (e) { if (token) toast(e.message); } }
+
+// ---- while a trip is out (Departed) the phone shares the vehicle's position with the office and the customers ----
+let watchId = null, lastSent = 0, sharingTrip = null, wake = null;
+function share() {
+  const out = (data && data.trips || []).find(t => t.status === "Departed");
+  if (!out) { stopShare(); return; }
+  sharingTrip = out.trip_id;
+  if (watchId === null && navigator.geolocation) {
+    watchId = navigator.geolocation.watchPosition(async p => {
+      if (Date.now() - lastSent < 60000) return;            // at most once a minute
+      lastSent = Date.now();
+      try { await api("/api/driver/position", {trip_id: sharingTrip, lat: p.coords.latitude, lng: p.coords.longitude,
+                                                accuracy: p.coords.accuracy, speed: p.coords.speed});
+            const m = $("sharing"); m.textContent = "Sharing the vehicle's location with customers · last sent " +
+              new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + ". Keep this page open."; m.classList.remove("hidden");
+      } catch (e) {}
+    }, () => { const m = $("sharing"); m.textContent = "Location is off: allow location for this page so customers can see the vehicle."; m.classList.remove("hidden"); },
+    {enableHighAccuracy: true, maximumAge: 30000, timeout: 30000});
+  }
+  if ("wakeLock" in navigator && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
+}
+function stopShare() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if (wake) { wake.release(); wake = null; }
+  sharingTrip = null; const m = $("sharing"); if (m) m.classList.add("hidden");
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && data) share(); });
 
 function showTrips() {
   $("title").textContent = "Hello " + (data.name || "");
@@ -183,37 +322,97 @@ function showTrip(id) {
   if (step) { $("tripStep").textContent = step[1]; $("tripStep").dataset.action = step[0]; }
   $("stops").innerHTML = t.stops.map((s, i) => `<div class="stop ${s.done ? "done" : s.failed ? "bad" : ""}" onclick="showStop('${esc(s.order_id)}')">
     <div class="num">${s.done ? "✓" : i + 1}</div><div><div class="who">${esc(s.client)}</div>
-    <div class="where">${esc(s.address || "No address on file")}</div><div class="where">Order ${esc(s.order_id)} · ${esc(s.stage_label)}</div></div></div>`).join("");
+    <div class="where">${esc(s.address || "No address on file")}</div><div class="where">${s.eta ? "Planned " + esc(s.eta) + " · " : ""}${stopName(s)} · ${esc(s.stage_label)}</div></div></div>`).join("");
   view("trip");
 }
 
 $("tripStep").onclick = async () => {
   const b = $("tripStep"); b.disabled = true; $("tripErr").classList.add("hidden");
-  try { data = await api("/api/driver/trip", Object.assign({trip_id: curTrip.trip_id, action: b.dataset.action, km: $("km").value}, await where()));
-        $("km").value = ""; toast("Saved"); showTrip(curTrip.trip_id); }
+  try { data = await api("/api/driver/trip", Object.assign({trip_id: curTrip.trip_id, action: b.dataset.action, km: $("km").value}, await where(false)));
+        $("km").value = ""; toast(b.dataset.action === "departed" ? "Safe trip! Customers can now see the vehicle." : "Saved");
+        lastSent = 0; showTrip(curTrip.trip_id); share(); }
   catch (e) { $("tripErr").textContent = e.message; $("tripErr").classList.remove("hidden"); }
   finally { b.disabled = false; }
 };
 
+function stopName(s) {
+  return s.kind === "Collection" ? "COLLECT · " + esc(s.order_id) : s.kind === "Stop" ? "Stop" : "Order " + esc(s.order_id);
+}
 function showStop(oid) {
   curStop = curTrip.stops.find(s => s.order_id === oid);
-  const s = curStop;
+  const s = curStop, other = s.kind && s.kind !== "Delivery";
   $("title").textContent = s.client;
   $("stopTitle").textContent = s.client;
-  $("stopSub").textContent = `Order ${s.order_id} · ${s.address || "no address"}` + (s.done ? " · DELIVERED" : "");
+  $("stopSub").innerHTML = `${stopName(s)} · ${esc(s.address || "no address")}` + (s.done ? (other ? " · DONE" : " · DELIVERED") : "");
+  $("podCard").classList.toggle("hidden", !!other);
+  $("otherCard").classList.toggle("hidden", !other);
+  $("otherTitle").textContent = s.kind === "Collection" ? "Goods collected" : "Stop done";
+  $("otherDone").textContent = s.kind === "Collection" ? "Collected" : "Done";
+  $("onote").value = "";
+  $("failed").textContent = other ? "Couldn't do it" : "Delivery failed";
   const links = [];
-  if (s.address) links.push(`<a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}">Directions</a>`);
+  const q = s.lat != null && s.lng != null ? `${s.lat},${s.lng}` : s.address;
+  if (q) links.push(`<a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}">Directions</a>`);
   if (s.phone) links.push(`<a class="btn ghost" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">Call</a>`);
   $("stopLinks").innerHTML = links.join("");
   cond = "Good"; photo = ""; $("photoPrev").classList.add("hidden"); $("rb").value = ""; $("note").value = ""; $("why").value = "";
   paintCond();
   $("issues").innerHTML = s.items.map((x, i) => `<div class="item"><span>${esc(x.description)} <small>(sent ${esc(x.qty)})</small></span>
      <input type="number" min="0" max="${esc(x.qty)}" inputmode="numeric" data-i="${i}" placeholder="0"></div>`).join("");
-  clearSig();
   $("stopErr").classList.add("hidden");
+  $("qrBox").classList.add("hidden"); clearInterval(qrPoll);
+  $("toSign").classList.toggle("hidden", !!s.done); $("qrBtn").classList.toggle("hidden", !!s.done || !s.link);
   view("stop");
-  setTimeout(sizeSig, 50);
+  if (sMe) { smap.removeLayer(sMe); smap.removeLayer(sAcc); sMe = sAcc = null; }
+  startGps(); paintGps(); stopMap();
 }
+function issuesNow() {
+  return [...document.querySelectorAll("#issues input")].map(inp => {
+    const x = curStop.items[+inp.dataset.i]; return {sku: x.sku, description: x.description, qty: +inp.value || 0};
+  }).filter(i => i.qty > 0);
+}
+// ---- the receiver signs on this phone ----
+$("toSign").onclick = () => {
+  const s = curStop, issues = issuesNow(), note = $("note").value.trim();
+  const fail = m => { $("stopErr").textContent = m; $("stopErr").classList.remove("hidden"); $("stopErr").scrollIntoView({block: "center"}); };
+  if (["Short", "Damaged"].includes(cond) && !issues.length) return fail("Enter how many were short or damaged.");
+  if (cond !== "Good" && !note) return fail("Write a short note about the problem first.");
+  $("stopErr").classList.add("hidden");
+  $("signCo").textContent = (document.title.split("·")[1] || "").trim();
+  $("signOrder").textContent = `Order ${s.order_id} · ${s.client}`;
+  $("signItems").innerHTML = s.items.map(x => `<div class="item"><span>${esc(x.description)}</span><b>× ${esc(x.qty)}</b></div>`).join("");
+  $("signStatement").textContent = cond === "Good" ? "By signing I confirm that I received the items above in good order."
+    : cond === "Rejected" ? `I refuse this delivery. Reason: ${note}`
+    : `By signing I confirm that I received the items above, with this problem: ${note}` +
+      (issues.length ? " (" + issues.map(i => `${i.qty} × ${i.description} ${cond.toLowerCase()}`).join(", ") + ")" : "");
+  $("deliver").textContent = cond === "Rejected" ? "Sign to refuse" : "Sign & confirm";
+  $("signErr").classList.add("hidden"); $("rb").value = "";
+  view("sign"); startGps(); paintGps();
+  setTimeout(sizeSig, 60);
+};
+$("signBack").onclick = () => view("stop");
+let qrPoll = null;
+$("qrBtn").onclick = async () => {
+  const s = curStop, b = $("qrBtn");
+  b.disabled = true;
+  try {
+    if (!s.arrived) await stopAction("arrived", {}, true);          // the receiver can sign once you've arrived
+    await new Promise((ok, bad) => { if (window.qrcode) return ok();
+      const js = document.createElement("script"); js.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+      js.onload = ok; js.onerror = () => bad(new Error("No internet for the QR code.")); document.head.appendChild(js); });
+    const q = qrcode(0, "M"); q.addData(location.origin + "/o/" + s.link + "#sign"); q.make();
+    $("qr").innerHTML = q.createSvgTag({cellSize: 6, margin: 2});
+    $("qrBox").classList.remove("hidden");
+    clearInterval(qrPoll);
+    qrPoll = setInterval(async () => {                               // done when the receiver has signed
+      try { data = await api("/api/driver/trips");
+            curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
+            const now = curTrip.stops.find(x => x.order_id === s.order_id);
+            if (now && now.done) { clearInterval(qrPoll); toast("The receiver signed. Thank you!"); showTrip(curTrip.trip_id); } } catch (e) {}
+    }, 5000);
+  } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); }
+  finally { b.disabled = false; }
+};
 function paintCond() {
   $("cond").innerHTML = CONDS.map(c => `<button type="button" class="${c === cond ? "on" : ""}" onclick="setCond('${c}')">${c}</button>`).join("");
   $("issueBox").classList.toggle("hidden", !["Short", "Damaged"].includes(cond));
@@ -222,14 +421,14 @@ function setCond(c) { cond = c; paintCond(); }
 
 // signature pad
 const sig = $("sig"), sctx = sig.getContext("2d"); let drawing = false, inked = 0;
-function sizeSig() { const r = sig.getBoundingClientRect(); sig.width = Math.round(r.width); sig.height = 170; clearSig(); }
+function sizeSig() { const r = sig.getBoundingClientRect(); sig.width = Math.round(r.width); sig.height = Math.round(r.height) || 170; clearSig(); }
 function clearSig() { sctx.fillStyle = "#fff"; sctx.fillRect(0, 0, sig.width, sig.height); sctx.strokeStyle = "#0F172A"; sctx.lineWidth = 2.5; sctx.lineCap = "round"; inked = 0; }
 function pt(e) { const r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 sig.addEventListener("pointerdown", e => { drawing = true; sig.setPointerCapture(e.pointerId); const [x, y] = pt(e); sctx.beginPath(); sctx.moveTo(x, y); });
 sig.addEventListener("pointermove", e => { if (!drawing) return; const [x, y] = pt(e); sctx.lineTo(x, y); sctx.stroke(); inked++; });
 sig.addEventListener("pointerup", () => drawing = false);
 $("sigClear").onclick = clearSig;
-window.addEventListener("resize", () => { if (!$("stop").classList.contains("hidden")) sizeSig(); });
+window.addEventListener("resize", () => { if (!$("sign").classList.contains("hidden") && !inked) sizeSig(); });
 
 $("photo").onchange = e => {
   const f = e.target.files[0]; if (!f) return;
@@ -244,24 +443,33 @@ $("photo").onchange = e => {
   img.src = URL.createObjectURL(f);
 };
 
-async function stopAction(action, extra) {
-  $("stopErr").classList.add("hidden");
+async function stopAction(action, extra, quiet) {
+  const signing = !$("sign").classList.contains("hidden"), err = signing ? $("signErr") : $("stopErr");
+  err.classList.add("hidden");
+  const btns = [$("arrived"), $("deliver"), $("failed"), $("otherDone")];
+  btns.forEach(b => b.disabled = true);
   try {
-    data = await api("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, await where()));
+    if (signing) $("gpsText2").textContent = "Reading the location…";
+    const loc = await where(true);                          // the phone's GPS, read automatically
+    data = await api("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, loc));
     curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
-    toast(action === "arrived" ? "Noted: the customer sees you've arrived" : action === "failed" ? "Saved: the office and the customer can see why" : "Delivered. Thank you!");
+    if (quiet) { curStop = curTrip.stops.find(x => x.order_id === curStop.order_id) || curStop; return; }
+    toast(action === "arrived" ? "Noted: the customer sees you've arrived" : action === "failed" ? "Saved: the office can see why" : (curStop.kind && curStop.kind !== "Delivery" ? "Done. Thank you!" : "Signed and delivered. Thank you!"));
     if (action === "arrived") showStop(curStop.order_id); else showTrip(curTrip.trip_id);
-  } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); $("stopErr").scrollIntoView({block: "center"}); }
+  } catch (e) {
+    if (quiet) throw e;
+    err.textContent = e.message; err.classList.remove("hidden"); err.scrollIntoView({block: "center"}); paintGps();
+  } finally { btns.forEach(b => b.disabled = false); }
 }
 $("arrived").onclick = () => stopAction("arrived");
 $("deliver").onclick = () => {
-  const issues = [...document.querySelectorAll("#issues input")].map(inp => {
-    const x = curStop.items[+inp.dataset.i]; return {sku: x.sku, description: x.description, qty: +inp.value || 0};
-  }).filter(i => i.qty > 0);
-  stopAction("delivered", {received_by: $("rb").value, condition: cond, issues, note: $("note").value,
+  if (cond !== "Rejected" && inked <= 5) { $("signErr").textContent = "Please sign in the box with your finger."; $("signErr").classList.remove("hidden"); return; }
+  if ($("rb").value.trim().length < 2) { $("signErr").textContent = "Please type your full name."; $("signErr").classList.remove("hidden"); return; }
+  stopAction("delivered", {received_by: $("rb").value, condition: cond, issues: issuesNow(), note: $("note").value,
                            signature: inked > 5 ? sig.toDataURL("image/png") : "", photo});
 };
 $("failed").onclick = () => stopAction("failed", {note: $("why").value});
+$("otherDone").onclick = () => stopAction("delivered", {note: $("onote").value});
 
 if (token) load().then(() => {           // a link like /driver#TRIP-1 or #TRIP-1/111 opens that trip or stop
   const h = decodeURIComponent(location.hash.slice(1)).split("/");

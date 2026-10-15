@@ -35,6 +35,7 @@
          background-image:radial-gradient(var(--line) 1px, transparent 1px); background-size:22px 22px; }
   button, input, textarea { font:inherit; color:inherit; }
   .hidden { display:none !important; }
+  .leaflet-bar, .leaflet-bar a, .leaflet-control-zoom a { border-radius:0 !important; }
 
   /* app bar with the cube pattern */
   .appbar { background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
@@ -90,6 +91,16 @@
   .eta { margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,.2); display:flex; justify-content:space-between;
          gap:12px; font-size:13px; }
   .eta b { display:block; font-size:16px; }
+  .live { display:flex; gap:10px; align-items:flex-start; margin:8px 0 4px; padding:10px 12px; background:var(--ok-bg);
+          color:var(--ok-ink); border-left:4px solid var(--green-2); }
+  .live .sub { color:var(--ink); opacity:.8; }
+  .pulse { width:10px; height:10px; margin-top:5px; flex:none; background:#5DB032; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(93,176,50,.6); } 70% { box-shadow:0 0 0 10px rgba(93,176,50,0); } 100% { box-shadow:0 0 0 0 rgba(93,176,50,0); } }
+  .seg3 { display:grid; grid-template-columns:repeat(3, 1fr); border:1px solid var(--line); }
+  .seg3 button { border:0; border-left:1px solid var(--line); background:var(--card); color:var(--ink); padding:12px 4px; font-weight:600; }
+  .seg3 button:first-child { border-left:0; } .seg3 button.on { background:var(--navy); color:#fff; }
+  .signcard { border:2px solid var(--green-2); }
+  .pin { background:#052B63; color:#fff; font:700 11px/22px Inter, Arial, sans-serif; text-align:center; width:36px; height:22px; }
 
   /* the five steps */
   .steps { display:grid; grid-template-columns:repeat(5, 1fr); gap:0; margin:4px 0 2px; }
@@ -186,6 +197,27 @@
       <div class="eta hidden" id="hEta"></div>
     </div>
     <div class="card"><div class="steps" id="steps"></div></div>
+    <!-- the driver is at the door: the receiver can sign on their own phone -->
+    <div class="card hidden signcard" id="signCard">
+      <h2>Sign for your delivery</h2>
+      <p class="sub">The driver is with you. Check the goods, then sign below. Your phone's location is recorded with your
+        signature (allow location when asked).</p>
+      <div class="items" id="signItems"></div>
+      <label>Condition</label>
+      <div class="seg3" id="sCond"></div>
+      <div id="sNoteBox" class="hidden"><label for="sNote">What was short or damaged?</label>
+        <textarea id="sNote" maxlength="300"></textarea></div>
+      <label for="sName">Your full name</label>
+      <input id="sName" autocomplete="name" autocapitalize="words">
+      <label>Sign with your finger</label>
+      <canvas id="sSig" style="width:100%;height:220px;background:#fff;border:2px solid var(--navy);touch-action:none;display:block"></canvas>
+      <button class="btn ghost" id="sClear" type="button" style="margin-top:8px">Clear</button>
+      <div class="sub" id="sGps" style="margin:10px 0 0"></div>
+      <button class="btn green" id="sGo" type="button">Sign &amp; confirm delivery</button>
+      <div class="msg err hidden" id="sErr"></div>
+    </div>
+    <div class="card hidden" id="vehCard"><h3>Your delivery</h3><div id="veh"></div>
+      <div id="map" class="hidden" style="height:230px;margin-top:10px;border:1px solid var(--line)"></div></div>
     <div class="msg warn hidden" id="problem" style="margin:0 0 14px"></div>
     <div class="card hidden" id="noteCard"><h3>Message from us</h3><div id="note"></div></div>
     <div class="card hidden" id="borderCard"><h3>Cross-border</h3><div id="border"></div></div>
@@ -265,8 +297,9 @@ function render(v) {
   const pill = $("hPill");
   pill.textContent = v.stage_label;
   pill.className = "pill" + (v.stage === "delivered" ? " done" : v.stage === "cancelled" || v.problem ? " bad" : "");
-  const eta = [];
-  if (v.eta) eta.push(`<div>Expected<b>${esc(v.eta)}</b></div>`);
+  const eta = [], dl = v.delivery || {};
+  if (dl.live_eta) eta.push(`<div>Arriving about<b>${esc(dl.live_eta)}</b></div>`);
+  else if (v.eta) eta.push(`<div>Expected<b>${esc(v.eta)}</b></div>`);
   if (v.courier || v.waybill) eta.push(`<div style="text-align:right">${esc(v.courier || "Courier")}<b>${esc(v.waybill || "")}</b></div>`);
   if (v.stage === "delivered" && v.received_by) eta.push(`<div>Received by<b>${esc(v.received_by)}</b></div>`);
   $("hEta").innerHTML = eta.join("");
@@ -276,6 +309,7 @@ function render(v) {
       <span class="dot"></span><b>${esc(s.label)}</b><small>${esc((s.when || "").replace(/^\w+ /, "").replace(/ \d{4}/, ""))}</small></div>`).join("");
 
   const last = v.events[0] || {};
+  paintVehicle(v.delivery);
   $("problem").classList.toggle("hidden", !v.problem);
   $("problem").textContent = v.problem ? (last.title + (last.detail ? ": " + last.detail : "")) : "";
   $("noteCard").classList.toggle("hidden", !v.message);
@@ -288,13 +322,15 @@ function render(v) {
   if (v.proof) $("pod").innerHTML = `<div><b>${esc(v.proof.by || "Signed")}</b>${v.proof.when ? " · " + esc(v.proof.when) : ""}</div>` +
       (v.proof.condition && v.proof.condition !== "Good" ? `<div class="sub" style="margin:4px 0 0">Condition: ${esc(v.proof.condition)}</div>` : "") +
       (/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(v.proof.signature || "") ? `<img alt="Signature" src="${v.proof.signature}" style="display:block;max-width:100%;height:90px;margin-top:8px;background:#fff;border:1px solid var(--line)">` : "") +
-      (v.proof.photo ? `<div class="sub" style="margin:6px 0 0">A photo was taken at delivery.</div>` : "");
+      (v.proof.photo ? `<div class="sub" style="margin:6px 0 0">A photo was taken at delivery.</div>` : "") +
+      (v.proof.at_address ? `<div class="sub" style="margin:6px 0 0">✓ Signed at your delivery address${v.proof.signed_on === "receiver's phone" ? ", on your phone" : ""}.</div>` : "");
   $("tl").innerHTML = v.events.map(e => `<li class="${["failed", "delayed", "cancelled"].includes(e.kind) ? "bad" : ""}">
       <div class="t">${esc(e.title)}</div>${e.when ? `<div class="w">${esc(e.when)}</div>` : ""}
       ${e.detail ? `<div class="d">${esc(e.detail)}</div>` : ""}</li>`).join("");
   $("items").innerHTML = v.items.length ? v.items.map(i => `<div><span>${esc(i.description)}</span><span>× ${esc(i.qty)}</span></div>`).join("")
                                         : `<div><span class="sub">No items listed</span></div>`;
-  $("confirmCard").classList.toggle("hidden", !v.can_confirm);
+  paintSign(v);
+  $("confirmCard").classList.toggle("hidden", !v.can_confirm || !!v.can_sign);
   const done = v.stage === "delivered";
   $("cTitle").textContent = done ? "How did we do?" : "Received your order?";
   $("cSub").textContent = done ? "Your order was delivered. Confirm you have it and rate the delivery."
@@ -305,6 +341,50 @@ function render(v) {
   show("result");
   clearInterval(timer);
   if (!["delivered", "cancelled"].includes(v.stage)) timer = setInterval(() => { if (!document.hidden) load(v.key, true); }, 60000);
+}
+
+let map = null, marker = null;
+function leaflet() {
+  if (window.L) return Promise.resolve();
+  return new Promise((ok, bad) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = ok; js.onerror = bad; document.head.appendChild(js);
+  });
+}
+function paintVehicle(d) {
+  $("vehCard").classList.toggle("hidden", !d);
+  if (!d) return;
+  let h = "";
+  if (d.kind === "courier") h = `<div><b>With ${esc(d.courier)}</b></div>${d.waybill ? `<div class="sub" style="margin:2px 0 0">Waybill ${esc(d.waybill)}</div>` : ""}`;
+  else if (d.kind === "collect") h = `<div><b>Ready for you to collect</b></div>`;
+  else {
+    const out = d.status === "Departed";
+    h = `<div><b>${out ? "Out for delivery" : d.status === "Loaded" ? "Loaded, leaving soon" : "Booked on a delivery"}</b> in vehicle <b>${esc(d.vehicle)}</b>${d.driver ? " with " + esc(d.driver) : ""}</div>`;
+    if (d.stop) h += `<div class="sub" style="margin:4px 0 0">${d.before === 0 ? (out ? "You are the next delivery." : "You are the first delivery.") :
+                      `You are delivery ${d.stop} of ${d.stops} · ${d.before} delivery${d.before === 1 ? "" : "s"} before yours`}</div>`;
+    if (d.live_eta) h += `<div class="live"><span class="pulse"></span><div><b>Arriving about ${esc(d.live_eta)}</b>
+      <div class="sub" style="margin:2px 0 0">About ${esc(d.live_minutes)} min from where the vehicle is now${d.before ? ", including the deliveries before yours" : ""}.</div></div></div>`;
+    else if (d.window) h += `<div style="margin:6px 0 2px"><b>Expected between ${esc(d.window)}</b>${d.trip_date ? ` <span class="sub">(${esc(d.trip_date)})</span>` : ""}</div>`;
+    if (d.live_eta && d.window) h += `<div class="sub" style="margin:2px 0 0">Planned between ${esc(d.window)}</div>`;
+    if (d.left_at) h += `<div class="sub" style="margin:2px 0 0">Left ${esc(d.left_at)}</div>`;
+    if (d.last_seen) h += `<div class="sub" style="margin:2px 0 0">Vehicle last seen ${esc(d.last_seen)}</div>`;
+  }
+  $("veh").innerHTML = h;
+  const show = d.kind === "vehicle" && d.lat != null;
+  $("map").classList.toggle("hidden", !show);
+  if (show) leaflet().then(() => {
+    const dest = d.dest_lat != null ? [d.dest_lat, d.dest_lng] : null;
+    if (!map) { map = L.map("map", {zoomControl: true, attributionControl: true}).setView([d.lat, d.lng], 13);
+      const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 18, attribution: "© OpenStreetMap"}).addTo(map);
+      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                              {maxZoom: 18, attribution: "Imagery © Esri"});
+      L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
+      marker = L.circleMarker([d.lat, d.lng], {radius: 9, color: "#052B63", fillColor: "#5DB032", fillOpacity: 1, weight: 3}).addTo(map).bindTooltip("The vehicle");
+      if (dest) { L.marker(dest, {icon: L.divIcon({className: "", html: '<div class="pin">You</div>', iconSize: [36, 22], iconAnchor: [18, 22]})}).addTo(map);
+                  map.fitBounds([[d.lat, d.lng], dest], {padding: [36, 36], maxZoom: 15}); } }
+    else { marker.setLatLng([d.lat, d.lng]); if (!dest) map.panTo([d.lat, d.lng]); }
+    setTimeout(() => map.invalidateSize(), 50);
+  }).catch(() => $("map").classList.add("hidden"));
 }
 
 async function load(key, quiet) {
@@ -338,6 +418,56 @@ $("cGo").onclick = async () => {
   } catch (e) { $("cErr").textContent = e.message; $("cErr").classList.remove("hidden"); }
   finally { btn.disabled = false; }
 };
+// ---- the receiver signs on their own phone (only while the driver is at the door) ----
+let sCond = "Good", sInk = 0, sFix = null, sWatch = null, signShown = false;
+const sig = $("sSig"), sx = sig.getContext("2d");
+function sSize() { const r = sig.getBoundingClientRect(); sig.width = Math.round(r.width); sig.height = Math.round(r.height); sClear(); }
+function sClear() { sx.fillStyle = "#fff"; sx.fillRect(0, 0, sig.width, sig.height); sx.strokeStyle = "#0F172A"; sx.lineWidth = 2.5; sx.lineCap = "round"; sInk = 0; }
+let sDraw = false;
+const sPt = e => { const r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+sig.addEventListener("pointerdown", e => { sDraw = true; sig.setPointerCapture(e.pointerId); const [x, y] = sPt(e); sx.beginPath(); sx.moveTo(x, y); });
+sig.addEventListener("pointermove", e => { if (!sDraw) return; const [x, y] = sPt(e); sx.lineTo(x, y); sx.stroke(); sInk++; });
+sig.addEventListener("pointerup", () => sDraw = false);
+$("sClear").onclick = sClear;
+function paintSCond() {
+  $("sCond").innerHTML = ["Good", "Short", "Damaged"].map(c => `<button type="button" class="${c === sCond ? "on" : ""}" data-c="${c}">${c}</button>`).join("");
+  [...$("sCond").children].forEach(b => b.onclick = () => { sCond = b.dataset.c; paintSCond(); });
+  $("sNoteBox").classList.toggle("hidden", sCond === "Good");
+}
+function sGps() {
+  if (!navigator.geolocation || sWatch !== null) return;
+  sWatch = navigator.geolocation.watchPosition(p => { sFix = {lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy)};
+      $("sGps").textContent = `Location found (±${sFix.accuracy} m).`; },
+    e => { $("sGps").textContent = e.code === 1 ? "Location is blocked: allow location for this page to sign." : "Finding your location…"; },
+    {enableHighAccuracy: true, maximumAge: 10000, timeout: 30000});
+}
+function paintSign(v) {
+  $("signCard").classList.toggle("hidden", !v.can_sign);
+  if (!v.can_sign || signShown) return;
+  signShown = true;
+  $("signItems").innerHTML = v.items.map(i => `<div><span>${esc(i.description)}</span><span>× ${esc(i.qty)}</span></div>`).join("");
+  paintSCond(); sGps(); $("sGps").textContent = "Finding your location…";
+  setTimeout(() => { sSize(); if (location.hash === "#sign") $("signCard").scrollIntoView({block: "start"}); }, 80);
+}
+$("sGo").onclick = async () => {
+  const err = $("sErr"), b = $("sGo");
+  err.classList.add("hidden");
+  const fail = m => { err.textContent = m; err.classList.remove("hidden"); };
+  if ($("sName").value.trim().length < 2) return fail("Type your full name.");
+  if (sInk <= 5) return fail("Please sign in the box.");
+  if (sCond !== "Good" && !$("sNote").value.trim()) return fail("Say what was short or damaged.");
+  b.disabled = true; b.textContent = "Reading your location…";
+  for (let i = 0; i < 30 && !sFix; i++) await new Promise(r => setTimeout(r, 500));
+  if (!sFix) { b.disabled = false; b.textContent = "Sign & confirm delivery"; return fail("Your location is needed: allow location for this page and try again."); }
+  try {
+    render(await api("/api/sign", {key: current.key, name: $("sName").value, condition: sCond, note: $("sNote").value,
+                                   signature: sig.toDataURL("image/png"), lat: sFix.lat, lng: sFix.lng, accuracy: sFix.accuracy}));
+    if (sWatch !== null) navigator.geolocation.clearWatch(sWatch);
+    window.scrollTo(0, 0);
+  } catch (e) { fail(e.message); }
+  finally { b.disabled = false; b.textContent = "Sign & confirm delivery"; }
+};
+
 $("another").onclick = () => { clearInterval(timer); history.replaceState(null, "", "/"); paintRecent(); show("find"); };
 $("refresh").onclick = () => current && load(current.key, true);
 $("share").onclick = async () => {

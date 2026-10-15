@@ -16,8 +16,9 @@ guessed from an order number alone. Customers without the link can look an order
 import base64
 import hashlib
 import hmac
+import math
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
 DELIVERY_SKU = "DELIVERY"
@@ -148,7 +149,11 @@ def group_order(rows: List[dict]) -> Optional[dict]:
     return {"order_id": str(r0.get("order_id") or ""), "client_name": r0.get("client_name") or "",
             "order_date": str(r0.get("order_date") or "")[:10], "otime": str(r0.get("otime") or "")[:5],
             "status": r0.get("status") or "", "lines": lines,
-            "cancel_reason": r0.get("reason_cancellation") or r0.get("cancel_reason") or ""}
+            "cancel_reason": r0.get("reason_cancellation") or r0.get("cancel_reason") or "",
+            "priority": r0.get("priority") or "Normal", "deliver_by": r0.get("deliver_by"),
+            "delivery_address": r0.get("delivery_address") or "",
+            "delivery_lat": r0.get("delivery_lat"), "delivery_lng": r0.get("delivery_lng"),
+            "value": sum(num(r.get("value")) for r in rows)}
 
 
 # ---- where is it? ----
@@ -172,8 +177,88 @@ def stage_of(order: dict, despatch: List[dict], track: Optional[dict], shipments
     return "received"
 
 
+def vehicle_view(order_id: str, trip: Optional[dict], track: dict, stage: str, now: datetime) -> Optional[dict]:
+    """What the customer sees about the vehicle bringing their order: registration, driver, when it was last seen and
+    where (only while it is out for delivery), and how many deliveries come before theirs."""
+    track = track or {}
+    if stage in ("delivered", "cancelled"):
+        return None
+    if not trip:
+        if track.get("courier") and not track.get("vehicle"):
+            return {"kind": "courier", "courier": track.get("courier"), "waybill": track.get("waybill") or ""}
+        last = next((e for e in reversed(track.get("events") or []) if e.get("kind") == "allocated"), None)
+        if last and str(last.get("note") or "").startswith("The customer collects"):
+            return {"kind": "collect"}
+        return None
+    reg = str(trip.get("vehicle") or track.get("vehicle") or "").split("·")[0].strip()
+    driver = str(trip.get("driver") or track.get("driver") or "").split()[0] if (trip.get("driver") or track.get("driver")) else ""
+    stops = [str(o) for o in trip.get("orders") or []]
+    done = set(trip.get("_done") or []) | {str(p.get("order_id")) for p in trip.get("plan") or []
+                                           if p.get("done") or p.get("failed")}
+    me = stops.index(str(order_id)) + 1 if str(order_id) in stops else None
+    before = sum(1 for o in stops[:me - 1] if o not in done) if me else None
+    out = {"kind": "vehicle", "vehicle": reg, "driver": driver, "status": trip.get("status") or "Planned",
+           "stop": me, "stops": len(stops), "before": before, "trip_date": str(trip.get("trip_date") or "")[:10]}
+    eta = next((p.get("eta") for p in trip.get("plan") or [] if str(p.get("order_id")) == str(order_id)), None)
+    if eta:
+        try:
+            h, m = map(int, str(eta).split(":")[:2])
+            lo, hi = h * 60 + m - 30, h * 60 + m + 30
+            out["eta"] = eta
+            out["window"] = f"{max(0, lo) // 60:02d}:{max(0, lo) % 60:02d} and {hi // 60:02d}:{hi % 60:02d}"
+        except ValueError:
+            pass
+    pos = trip.get("last_position") or {}
+    if trip.get("status") == "Departed" and pos.get("lat") is not None and pos.get("lng") is not None:
+        seen = _dt(pos.get("at"))
+        mins = int((now - seen).total_seconds() // 60) if seen else None
+        if mins is not None and mins <= 180:
+            out.update(lat=round(float(pos["lat"]), 5), lng=round(float(pos["lng"]), 5), seen_minutes=max(0, mins),
+                       last_seen="just now" if mins < 2 else f"{mins} minutes ago" if mins < 90 else
+                       f"{mins // 60} h {mins % 60} min ago")
+    left = next((e.get("at") for e in reversed(trip.get("events") or []) if e.get("kind") == "departed"), None)
+    if left:
+        out["left_at"] = when_text(left)
+    plan = {str(p.get("order_id")): p for p in trip.get("plan") or []}
+    mine = plan.get(str(order_id)) or {}
+    if mine.get("lat") is not None and mine.get("lng") is not None:
+        out["dest_lat"], out["dest_lng"] = round(float(mine["lat"]), 5), round(float(mine["lng"]), 5)
+    live = live_eta(stops, me, done, plan, out, now)
+    if live:
+        out.update(live)
+    return out
+
+
+ROAD_FACTOR, CITY_KMH, STOP_MINUTES = 1.3, 40.0, 12.0
+
+
+def _km(a, b) -> float:
+    la1, lo1, la2, lo2 = map(math.radians, (a[0], a[1], b[0], b[1]))
+    h = math.sin((la2 - la1) / 2) ** 2 + math.cos(la1) * math.cos(la2) * math.sin((lo2 - lo1) / 2) ** 2
+    return 6371.0 * 2 * math.asin(math.sqrt(h))
+
+
+def live_eta(stops: List[str], me: Optional[int], done: set, plan: dict, out: dict, now: datetime) -> Optional[dict]:
+    """While the vehicle is out and was seen in the last 30 minutes: when it should reach this customer, from where it
+    is now through the stops still before theirs (road distance ≈ straight line × 1.3, 40 km/h, 12 min per stop)."""
+    if not me or out.get("lat") is None or (out.get("seen_minutes") or 0) > 30:
+        return None
+    route = [o for o in stops[:me - 1] if o not in done and not (plan.get(o) or {}).get("done")] + [stops[me - 1]]
+    pts = [(float(plan[o]["lat"]), float(plan[o]["lng"])) for o in route
+           if (plan.get(o) or {}).get("lat") is not None and (plan.get(o) or {}).get("lng") is not None]
+    if len(pts) != len(route):
+        return None                           # a stop without a map position: keep the planned window
+    pos, km = (out["lat"], out["lng"]), 0.0
+    for p in pts:
+        km += _km(pos, p) * ROAD_FACTOR
+        pos = p
+    minutes = km / CITY_KMH * 60 + STOP_MINUTES * (len(pts) - 1)
+    at = now + timedelta(minutes=minutes)
+    return {"live_eta": at.strftime("%H:%M"), "live_minutes": int(round(minutes)), "live_km": round(km, 1)}
+
+
 def view(order: dict, despatch: List[dict], track: Optional[dict], shipments: List[dict],
-         now: Optional[datetime] = None) -> dict:
+         now: Optional[datetime] = None, trip: Optional[dict] = None) -> dict:
     """Everything the customer sees about one order (nothing about prices or other customers)."""
     now = now or datetime.now()
     track = dict(track or {})
@@ -267,12 +352,15 @@ def view(order: dict, despatch: List[dict], track: Optional[dict], shipments: Li
             "received_by": track.get("received_by") or "", "steps": steps, "items": items,
             "proof": {"by": pod.get("received_by") or track.get("received_by") or "", "when": when_text(pod.get("at")),
                       "signature": pod.get("signature") or "", "photo": bool(pod.get("photo_path")),
-                      "condition": pod.get("condition") or ""} if (pod or track.get("delivered_at")) else None,
+                      "condition": pod.get("condition") or "",
+                      "at_address": (pod.get("location") or {}).get("status") == LOC_OK,
+                      "signed_on": pod.get("signed_on") or ""} if (pod or track.get("delivered_at")) else None,
             "events": list(reversed(events)), "confirmed": bool(track.get("confirmed_at")),
             "can_confirm": stage in ("dispatched", "in_transit", "delivered") and not track.get("confirmed_at"),
             "border": next(({"status": s.get("status"), "border_post": s.get("border_post") or "",
                              "to": s.get("destination_country") or ""} for s in shipments), None),
-            "updated": now.strftime("%H:%M")}
+            "updated": now.strftime("%H:%M"),
+            "delivery": vehicle_view(order.get("order_id"), trip, track, stage, now)}
 
 
 def add_event(track: Optional[dict], kind: str, note: str = "", by: str = "", when: Optional[datetime] = None,
@@ -297,6 +385,61 @@ def add_event(track: Optional[dict], kind: str, note: str = "", by: str = "", wh
 # ---- delivery performance (Order Tracking > Delivery performance) ----
 
 POD_CONDITIONS = ["Good", "Short", "Damaged", "Rejected"]
+
+# ---- where a delivery was signed for: picked up by the phone's GPS, never typed, and checked against the address ----
+NEAR_METRES = 300            # signed within this distance of the delivery address (plus the GPS accuracy, max 200 m)
+VEHICLE_METRES = 1000        # the vehicle's own GPS tracker more than this far away = the phone and the vehicle disagree
+LOC_OK, LOC_FAR, LOC_NO_ADDRESS, LOC_NONE = "Verified", "Far from the address", "Address not on the map", "No location"
+
+
+def check_location(fix: Optional[dict], expected: Optional[tuple], vehicle: Optional[dict] = None,
+                   now: Optional[datetime] = None) -> dict:
+    """fix: {"lat", "lng", "acc"} from the phone at the moment of signing; expected: (lat, lng) of the delivery address;
+    vehicle: the vehicle tracker's last position {"lat", "lng", "at", "source"}. Returns what is stored with the proof."""
+    now = now or datetime.now()
+    out = {"at": now.isoformat(timespec="seconds"), "status": LOC_NONE}
+    try:
+        lat, lng = float(fix["lat"]), float(fix["lng"])
+        if not (-90 <= lat <= 90 and -180 <= lng <= 180) or (lat == 0 and lng == 0):
+            raise ValueError
+    except (TypeError, ValueError, KeyError):
+        return out
+    acc = num((fix or {}).get("acc"))
+    out.update(lat=round(lat, 6), lng=round(lng, 6), acc=round(acc) if acc else None)
+    if expected and expected[0] is not None and expected[1] is not None:
+        d = _km((lat, lng), (float(expected[0]), float(expected[1]))) * 1000
+        out.update(expected={"lat": round(float(expected[0]), 6), "lng": round(float(expected[1]), 6)},
+                   distance_m=round(d), status=LOC_OK if d <= NEAR_METRES + min(acc or 0, 200) else LOC_FAR)
+    else:
+        out["status"] = LOC_NO_ADDRESS
+    v = vehicle or {}
+    seen = _dt(v.get("at"))
+    if v.get("lat") is not None and v.get("source") == "tracker" and seen and abs((now - seen).total_seconds()) <= 900:
+        vd = _km((lat, lng), (float(v["lat"]), float(v["lng"]))) * 1000
+        out["vehicle_distance_m"] = round(vd)
+        if vd > VEHICLE_METRES:
+            out["vehicle_warning"] = f"The vehicle's GPS tracker was {vd / 1000:.1f} km away"
+    return out
+
+
+def location_text(loc: Optional[dict]) -> str:
+    """'Verified · 40 m from the address (±12 m)' for screens and reports."""
+    loc = loc or {}
+    st = loc.get("status") or LOC_NONE
+    bits = [st]
+    if loc.get("distance_m") is not None:
+        d = loc["distance_m"]
+        bits.append(f"{d} m from the address" if d < 1000 else f"{d / 1000:.1f} km from the address")
+    if loc.get("acc"):
+        bits[-1] += f" (±{loc['acc']} m)"
+    if loc.get("vehicle_warning"):
+        bits.append(loc["vehicle_warning"])
+    return " · ".join(bits)
+
+
+def location_problem(loc: Optional[dict]) -> bool:
+    loc = loc or {}
+    return loc.get("status") in (LOC_FAR, LOC_NONE) or bool(loc.get("vehicle_warning"))
 
 
 def delivered_on_time(track: dict) -> Optional[bool]:

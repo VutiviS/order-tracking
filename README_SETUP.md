@@ -42,7 +42,8 @@ file as `tracking_domain.py` in the INVENTRA folder.
 2. Double-click the driver > **Set PIN** (4 to 8 digits). Tell the driver in person.
 3. The driver opens **YOUR-LINK/driver** on their phone, signs in with their name and PIN, and adds it to the
    Home Screen. Their trips appear once the office plans them (Order Tracking > **Delivery trips**).
-4. On the road they tap **Everything is loaded**, **I'm leaving now**, then per stop **I've arrived** and
+4. On the road they tap **Everything is loaded**, **I'm leaving now** (from then on the phone shares the
+   vehicle's position: keep the page open), then per stop **I've arrived** and
    **Delivered** (name, condition, signature on the screen, photo) or **Delivery failed** (why).
    The customer's tracking page and the office see each step at once.
 
@@ -66,8 +67,18 @@ Print bin labels with their bin code as a barcode or QR code.
 - **Customer quotes**: Sales > Quotes > send the quote; the customer opens YOUR-LINK/q/... and accepts it: the order is
   created at once.
 
+## Live vehicle positions (GPS)
+A map can only show where a vehicle is if GPS sends its position. Two ways:
+- **The driver's phone**: while a trip is out, the /driver page shares the position (keep the page open).
+- **A GPS tracker per vehicle**: in INVENTRA, Transport > Vehicle tracking > **Connect a GPS tracker…**, double-click
+  the vehicle to make its tracker id. Then either install the free **Traccar Client** app on a phone that stays in
+  the vehicle (Server URL `YOUR-LINK/api/gps`, Device identifier = the tracker id, frequency 30 seconds), or ask your
+  GPS tracking company to forward positions with the **OsmAnd** protocol to `YOUR-LINK/api/gps`.
+
 ## Files to upload
-`track_server.py`, `warehouse.py`, `supplier.py`, `quotes_web.py`, `supplier_page.html`, `quote_page.html`, `track_page.html`, `driver_page.html`, `warehouse_page.html`, `tracking_domain.py`,
+Easiest: INVENTRA > Order Tracking > Tracking website & drivers > **Check it**, then **Update the website…** >
+**Put the files in a folder**. It gathers exactly the files that differ from the website.
+The full list: `track_server.py`, `gps.py`, `delivery_proof.py`, `web_files.py`, `warehouse.py`, `supplier.py`, `quotes_web.py`, `supplier_page.html`, `quote_page.html`, `track_page.html`, `driver_page.html`, `warehouse_page.html`, `tracking_domain.py`,
 `inventra_stock.py`, `inventra_sku.py`, `inventra_bins.py`, `inventra_quality.py`, `sales_quotes.py`, `requirements.txt`, `Procfile`,
 `manifest.json`, `logo.png`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`.
 The shared files come from the INVENTRA folder: run `python sync_web_files.py` there first so they are up to date.
