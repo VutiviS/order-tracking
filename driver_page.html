@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#052B63">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,6 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  picture { display:flex; flex:none; align-items:center; }
   :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --amber:#B45309; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A;
           --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
           --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -72,7 +74,7 @@
 </head>
 <body>
 <header class="bar"><div class="in">
-  <img src="/logo.png" alt="" onerror="this.remove()">
+  <picture><source media="(max-width:400px)" srcset="/favicon.svg"><img src="/logo.svg" alt="" onerror="this.remove()"></picture>
   <div class="t" id="title">Deliveries</div>
   <button id="back" class="hidden" type="button">Back</button>
   <button id="out" class="hidden" type="button">Sign out</button>

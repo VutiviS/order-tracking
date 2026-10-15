@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#052B63">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" href="/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -16,6 +17,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  picture { display:flex; flex:none; align-items:center; }
   :root {
     --navy:#052B63; --navy-2:#0A3A80; --green:#2F8F2A; --green-2:#5DB032; --red:#B42318; --amber:#B45309;
     --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A; --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4;
@@ -162,7 +164,7 @@
 </head>
 <body>
 <header class="appbar"><div class="in">
-  <img class="logo" src="/logo.png" alt="" onerror="this.remove()">
+  <picture><source media="(max-width:400px)" srcset="/favicon.svg"><img class="logo" src="/logo.svg" alt="" onerror="this.remove()"></picture>
   <div class="grow"><div class="co">{{COMPANY}}</div><div class="ttl">Order tracking</div></div>
   <button class="link hidden" id="another" type="button">Track another</button>
 </div></header>

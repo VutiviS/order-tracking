@@ -483,7 +483,9 @@ class Drivers:
 
 
 STATIC = {"/manifest.json": "application/manifest+json", "/icon-192.png": "image/png", "/icon-512.png": "image/png",
-          "/apple-touch-icon.png": "image/png", "/logo.png": "image/png"}
+          "/apple-touch-icon.png": "image/png", "/logo.png": "image/png", "/logo.svg": "image/svg+xml",
+          "/logo-light.svg": "image/svg+xml", "/logo-full.svg": "image/svg+xml", "/logo-full-light.svg": "image/svg+xml",
+          "/favicon.svg": "image/svg+xml"}
 
 
 def company() -> dict:
