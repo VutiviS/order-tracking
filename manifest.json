@@ -1,7 +1,9 @@
 {
-  "name": "Order tracking",
-  "short_name": "Track order",
+  "name": "INVENTRA Order tracking & deliveries",
+  "short_name": "Track & deliver",
+  "description": "Customers follow their orders and sign for deliveries; drivers record trips and get deliveries signed.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#EEF1F6",
   "theme_color": "#052B63",
@@ -15,6 +17,25 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My deliveries (drivers)",
+      "short_name": "Deliveries",
+      "url": "/driver",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
+    },
+    {
+      "name": "Track an order",
+      "short_name": "Track",
+      "url": "/?track",
+      "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]
     }
   ]
 }

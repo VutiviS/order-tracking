@@ -98,6 +98,16 @@
   .live .sub { color:var(--ink); opacity:.8; }
   .pulse { width:10px; height:10px; margin-top:5px; flex:none; background:#5DB032; animation:pulse 1.6s infinite; }
   @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(93,176,50,.6); } 70% { box-shadow:0 0 0 10px rgba(93,176,50,0); } 100% { box-shadow:0 0 0 0 rgba(93,176,50,0); } }
+  .drivercard { border-top:4px solid var(--navy); margin-top:18px; }
+  .drivercard .btn { display:block; text-align:center; text-decoration:none; }
+  .arrived { position:fixed; left:0; right:0; bottom:0; z-index:50; background:#2F8F2A; color:#fff; padding:14px 16px
+             calc(14px + env(safe-area-inset-bottom)); display:grid; grid-template-columns:1fr auto; gap:2px 12px;
+             align-items:center; box-shadow:0 -6px 24px rgba(0,0,0,.25); animation:rise .3s ease-out; }
+  .arrived b { font-size:17px; } .arrived span { grid-column:1; font-size:13px; opacity:.92; }
+  .arrived button { grid-row:1 / span 2; grid-column:2; background:#fff; color:#1E6B1A; border:0; font-weight:700;
+                    padding:12px 16px; font-size:15px; cursor:pointer; }
+  @keyframes rise { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  .notify { margin-top:8px; }
   .seg3 { display:grid; grid-template-columns:repeat(3, 1fr); border:1px solid var(--line); }
   .seg3 button { border:0; border-left:1px solid var(--line); background:var(--card); color:var(--ink); padding:12px 4px; font-weight:600; }
   .seg3 button:first-child { border-left:0; } .seg3 button.on { background:var(--navy); color:#fff; }
@@ -187,7 +197,21 @@
       <div class="recent" id="recent"></div>
     </div>
     <p class="foot">Got a tracking link from us? Just open it: no need to type anything.</p>
+    <!-- drivers use the same app -->
+    <div class="card drivercard" id="driverCard">
+      <h3>Drivers</h3>
+      <p class="sub" id="driverSub">Delivering for us? Sign in with your name and PIN to see your trips, record each
+        delivery and get the receiver's signature.</p>
+      <a class="btn" href="/driver" id="driverGo">Driver sign-in</a>
+    </div>
   </section>
+
+  <!-- the driver is at the door: shown on top of everything until the receiver signs -->
+  <div class="arrived hidden" id="arrivedBar" role="alert">
+    <b>Your driver has arrived</b>
+    <span>Check your goods and sign for your delivery.</span>
+    <button type="button" id="arrivedGo">Sign now</button>
+  </div>
 
   <!-- one order -->
   <section id="result" class="hidden">
@@ -219,7 +243,9 @@
       <div class="msg err hidden" id="sErr"></div>
     </div>
     <div class="card hidden" id="vehCard"><h3>Your delivery</h3><div id="veh"></div>
-      <div id="map" class="hidden" style="height:230px;margin-top:10px;border:1px solid var(--line)"></div></div>
+      <div id="map" class="hidden" style="height:230px;margin-top:10px;border:1px solid var(--line)"></div>
+      <button class="btn ghost notify hidden" id="notifyBtn" type="button">Tell me when the driver is at my door</button>
+      <div class="msg ok hidden" id="notifyOk" style="margin-top:8px"></div></div>
     <div class="msg warn hidden" id="problem" style="margin:0 0 14px"></div>
     <div class="card hidden" id="noteCard"><h3>Message from us</h3><div id="note"></div></div>
     <div class="card hidden" id="borderCard"><h3>Cross-border</h3><div id="border"></div></div>
@@ -258,6 +284,7 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp
 let current = null, timer = null, rating = 0;
 
 function show(which) {
+  if (which === "find") { $("arrivedBar").classList.add("hidden"); document.body.style.paddingBottom = ""; }
   $("find").classList.toggle("hidden", which !== "find");
   $("result").classList.toggle("hidden", which !== "result");
   $("another").classList.toggle("hidden", which !== "result");
@@ -341,9 +368,43 @@ function render(v) {
   $("thanks").textContent = v.confirmed ? "Thank you: you confirmed that you received this order." : "";
   $("foot").textContent = `Updated ${v.updated}` + (["delivered", "cancelled"].includes(v.stage) ? "" : " · this page refreshes by itself");
   show("result");
+  arrivalPrompt(v);
   clearInterval(timer);
-  if (!["delivered", "cancelled"].includes(v.stage)) timer = setInterval(() => { if (!document.hidden) load(v.key, true); }, 60000);
+  // while the vehicle is out (or the driver is at the door) check every 15 seconds, otherwise every minute
+  const out = v.can_sign || (v.delivery && v.delivery.kind === "vehicle" && v.delivery.status === "Departed");
+  if (!["delivered", "cancelled"].includes(v.stage)) timer = setInterval(() => { if (!document.hidden) load(v.key, true); },
+                                                                         out ? 15000 : 60000);
 }
+
+// ---- the driver is at the door: prompt the receiver to sign (banner, vibration, notification) ----
+let promptedFor = null;
+function arrivalPrompt(v) {
+  $("arrivedBar").classList.toggle("hidden", !v.can_sign);
+  document.body.style.paddingBottom = v.can_sign ? "86px" : "";
+  const d = v.delivery || {};
+  $("notifyBtn").classList.toggle("hidden", !(d.kind === "vehicle" && d.status === "Departed" && !v.can_sign &&
+                                             "Notification" in window && Notification.permission === "default"));
+  if (!v.can_sign || promptedFor === v.key) return;
+  promptedFor = v.key;                                    // once per arrival
+  try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) {}
+  try {
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden !== false) {
+      const n = new Notification("Your driver has arrived", {body: `Check order ${v.order_id} and sign for it.`,
+                                                             icon: "/icon-192.png", tag: "arrived-" + v.order_id});
+      n.onclick = () => { window.focus(); $("signCard").scrollIntoView({block: "start"}); };
+    }
+  } catch (e) {}
+  if (location.hash === "#sign" || document.hidden === false) setTimeout(() => $("signCard").scrollIntoView({block: "start"}), 300);
+}
+$("arrivedGo").onclick = () => $("signCard").scrollIntoView({block: "start", behavior: "smooth"});
+$("notifyBtn").onclick = async () => {
+  try { await Notification.requestPermission(); } catch (e) {}
+  $("notifyBtn").classList.add("hidden");
+  if (Notification.permission === "granted") {
+    $("notifyOk").textContent = "✓ We'll alert you when the driver is at your door. Keep this page open.";
+    $("notifyOk").classList.remove("hidden");
+  }
+};
 
 let map = null, marker = null;
 function loadLeaflet() {
@@ -490,7 +551,15 @@ $("share").onclick = async () => {
 
 const m = location.pathname.match(/^\/o\/([^/]+)/);
 const k = m ? decodeURIComponent(m[1]) : new URLSearchParams(location.search).get("k");
-if (k) load(k); else { paintRecent(); show("find"); }
+// a phone where a driver has signed in opens straight on their deliveries (the "Track an order" shortcut doesn't)
+const isDriverPhone = (() => { try { return !!localStorage.getItem("inventra_driver"); } catch (e) { return false; } })();
+if (isDriverPhone) {
+  $("driverSub").textContent = "You're signed in as a driver on this phone.";
+  $("driverGo").textContent = "Open my deliveries";
+}
+if (k) load(k);
+else if (isDriverPhone && !new URLSearchParams(location.search).has("track")) location.replace("/driver");
+else { paintRecent(); show("find"); }
 </script>
 </body>
 </html>

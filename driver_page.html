@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#052B63">
+<link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="icon" type="image/png" href="/icon-192.png">
@@ -88,6 +89,7 @@
       <label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
       <button class="btn" id="go" type="button">Sign in</button>
       <div class="msg err hidden" id="loginErr"></div>
+      <a class="btn ghost" href="/?track" style="margin-top:14px">Not a driver? Track an order</a>
     </div>
   </section>
 
@@ -134,8 +136,16 @@
       <label for="note">Note (the customer sees it)</label><textarea id="note" maxlength="300"></textarea>
       <label class="btn ghost" style="margin:12px 0 0">Take a photo (optional)<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
       <img id="photoPrev" class="photo hidden" alt="">
-      <button class="btn green" id="toSign" type="button">Hand the phone to the receiver to sign →</button>
-      <button class="btn ghost" id="qrBtn" type="button">Receiver signs on their own phone (QR code)</button>
+      <h3 style="margin-top:16px">Get the receiver's signature</h3>
+      <button class="btn green" id="toSign" type="button">Sign on this phone (hand it to the receiver) →</button>
+      <div id="askBox">
+        <p class="sub" style="margin:10px 0 0">Or ask them to sign on their own phone: they get a link, open it and sign.
+          Their location is recorded too.</p>
+        <div class="row2"><button class="btn ghost" id="askWa" type="button">Send by WhatsApp</button>
+          <button class="btn ghost" id="askSms" type="button">Send by SMS</button></div>
+        <button class="btn ghost" id="qrBtn" type="button">Show a QR code to scan</button>
+        <div class="msg ok hidden" id="waitNote">Waiting for the receiver to sign… this page moves on by itself.</div>
+      </div>
       <div id="qrBox" class="hidden" style="text-align:center;margin-top:12px">
         <div id="qr" style="display:inline-block;background:#fff;padding:10px"></div>
         <p class="sub" style="margin:8px 0 0">The receiver scans this with their phone camera, then signs on their screen.
@@ -390,8 +400,9 @@ function showStop(oid) {
   $("issues").innerHTML = s.items.map((x, i) => `<div class="item"><span>${esc(x.description)} <small>(sent ${esc(x.qty)})</small></span>
      <input type="number" min="0" max="${esc(x.qty)}" inputmode="numeric" data-i="${i}" placeholder="0"></div>`).join("");
   $("stopErr").classList.add("hidden");
-  $("qrBox").classList.add("hidden"); clearInterval(qrPoll);
-  $("toSign").classList.toggle("hidden", !!s.done); $("qrBtn").classList.toggle("hidden", !!s.done || !s.link);
+  $("qrBox").classList.add("hidden"); $("waitNote").classList.add("hidden"); clearInterval(qrPoll);
+  $("toSign").classList.toggle("hidden", !!s.done); $("askBox").classList.toggle("hidden", !!s.done || !s.link);
+  $("askWa").classList.toggle("hidden", !s.phone); $("askSms").classList.toggle("hidden", !s.phone);
   view("stop");
   if (sMe) { smap.removeLayer(sMe); smap.removeLayer(sAcc); sMe = sAcc = null; }
   startGps(); paintGps(); stopMap();
@@ -422,26 +433,57 @@ $("toSign").onclick = () => {
 };
 $("signBack").onclick = () => view("stop");
 let qrPoll = null;
-$("qrBtn").onclick = async () => {
-  const s = curStop, b = $("qrBtn");
+// ---- the receiver signs on their own phone: a link by WhatsApp or SMS, or a QR code to scan ----
+const signLink = s => location.origin + "/o/" + s.link + "#sign";
+function waitForSignature(s) {
+  clearInterval(qrPoll);
+  $("waitNote").classList.remove("hidden");
+  qrPoll = setInterval(async () => {                                 // done when the receiver has signed
+    try { data = await api("/api/driver/trips");
+          curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
+          const now = curTrip.stops.find(x => x.order_id === s.order_id);
+          if (now && now.done) { clearInterval(qrPoll); toast("The receiver signed. Thank you!"); showTrip(curTrip.trip_id); } } catch (e) {}
+  }, 5000);
+}
+async function readyToAsk(b) {
+  const s = curStop;
+  $("stopErr").classList.add("hidden");
   b.disabled = true;
   try {
-    if (!s.arrived) await stopAction("arrived", {}, true);          // the receiver can sign once you've arrived
+    if (!s.arrived) { await stopAction("arrived", {}, true); curStop.arrived = true; }   // they can sign once you've arrived
+    return true;
+  } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); return false; }
+  finally { b.disabled = false; }
+}
+function intlPhone(p) {
+  let d = String(p || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "27" + d.slice(1);                     // South African numbers
+  return d;
+}
+const askText = s => `Hello ${s.client || ""}, your driver is at your door with order ${s.order_id}. Please check the ` +
+                     `goods and sign for them here: ${signLink(s)}`;
+$("askWa").onclick = async () => {
+  if (!await readyToAsk($("askWa"))) return;
+  window.open("https://wa.me/" + intlPhone(curStop.phone) + "?text=" + encodeURIComponent(askText(curStop)), "_blank");
+  waitForSignature(curStop);
+};
+$("askSms").onclick = async () => {
+  if (!await readyToAsk($("askSms"))) return;
+  location.href = "sms:" + String(curStop.phone).replace(/[^\d+]/g, "") + "?&body=" + encodeURIComponent(askText(curStop));
+  waitForSignature(curStop);
+};
+$("qrBtn").onclick = async () => {
+  const s = curStop, b = $("qrBtn");
+  if (!await readyToAsk(b)) return;
+  try {
     await new Promise((ok, bad) => { if (window.qrcode) return ok();
       const js = document.createElement("script"); js.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
       js.onload = ok; js.onerror = () => bad(new Error("No internet for the QR code.")); document.head.appendChild(js); });
-    const q = qrcode(0, "M"); q.addData(location.origin + "/o/" + s.link + "#sign"); q.make();
+    const q = qrcode(0, "M"); q.addData(signLink(s)); q.make();
     $("qr").innerHTML = q.createSvgTag({cellSize: 6, margin: 2});
     $("qrBox").classList.remove("hidden");
-    clearInterval(qrPoll);
-    qrPoll = setInterval(async () => {                               // done when the receiver has signed
-      try { data = await api("/api/driver/trips");
-            curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
-            const now = curTrip.stops.find(x => x.order_id === s.order_id);
-            if (now && now.done) { clearInterval(qrPoll); toast("The receiver signed. Thank you!"); showTrip(curTrip.trip_id); } } catch (e) {}
-    }, 5000);
+    waitForSignature(s);
   } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); }
-  finally { b.disabled = false; }
 };
 function paintCond() {
   $("cond").innerHTML = CONDS.map(c => `<button type="button" class="${c === cond ? "on" : ""}" onclick="setCond('${c}')">${c}</button>`).join("");
