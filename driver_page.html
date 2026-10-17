@@ -57,21 +57,27 @@
   .grid { display:grid; gap:12px; grid-template-columns:minmax(0, 1fr); }
   .card { background:var(--card); border:1px solid var(--line); padding:16px; }
   @media (min-width:980px), (orientation:landscape) and (min-width:720px) {
-    main { max-width:1280px; padding:16px 20px 0; }
-    #trip .grid { grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);
-                  grid-template-areas:"head map" "hero map" "smart map" "stops map" "step map"; align-items:start; }
+    /* the whole screen: the list a comfortable width on the left, the map everything else */
+    main { max-width:none; padding:16px max(20px, env(safe-area-inset-right)) 0 max(20px, env(safe-area-inset-left));
+           --left:clamp(340px, 36%, 560px); --left2:clamp(360px, 44%, 680px); }
+    .bar .in { max-width:none; }
+    #trip .grid { grid-template-columns:var(--left) minmax(0, 1fr); grid-template-rows:repeat(5, auto) 1fr;
+                  grid-template-areas:"head map" "hero map" "smart map" "stops map" "step map" ". map"; align-items:start; }
     #trip .grid > .a-head { grid-area:head; } #trip .grid > .a-hero { grid-area:hero; } #trip .grid > .a-smart { grid-area:smart; }
     #trip .grid > .a-stops { grid-area:stops; } #trip .grid > .a-step { grid-area:step; }
     #trip .grid > .a-map { grid-area:map; position:sticky; top:calc(var(--bar) + 16px); }
     #trip #tmap { height:calc(100vh - var(--bar) - 70px); height:calc(100dvh - var(--bar) - 70px); min-height:420px; }
-    #trip .dock { width:calc((100% - 12px) / 2.15); }
-    #stop .grid { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
-                  grid-template-areas:"loc loc" "head map" "pod map" "other map" "fail map"; align-items:start; }
+    #trip .dock { width:var(--left); }
+    #stop .grid { grid-template-columns:var(--left2) minmax(0, 1fr); grid-template-rows:repeat(5, auto) 1fr;
+                  grid-template-areas:"loc loc" "head map" "pod map" "other map" "fail map" ". map"; align-items:start; }
     #stop .grid > .a-loc { grid-area:loc; } #stop .grid > .a-head { grid-area:head; } #stop .grid > .a-pod { grid-area:pod; }
     #stop .grid > .a-other { grid-area:other; } #stop .grid > .a-fail { grid-area:fail; }
     #stop .grid > .a-map { grid-area:map; position:sticky; top:calc(var(--bar) + 16px); }
     #stop #smap { height:calc(100vh - var(--bar) - 70px); height:calc(100dvh - var(--bar) - 70px); min-height:380px; }
-    #stop .dock { width:calc((100% - 12px) / 2); }
+    #stop .dock { width:var(--left2); }
+    #sign .signcard { max-width:1100px; margin:0 auto; }
+    #sign .signgrid { display:grid; grid-template-columns:minmax(0, .9fr) minmax(0, 1.4fr); gap:20px; align-items:start; }
+    #sign canvas.sig { height:min(60vh, 460px); }
     #trips .list { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
     #trips .list > .card { margin:0; }
   }
@@ -604,8 +610,10 @@ function loadLeaflet() {
   });
 }
 function baseLayers(map) {
-  const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(map);
-  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19});
+  // Esri map tiles: no key needed and no "where from" rules (OpenStreetMap's own servers block busy apps)
+  const opt = {maxZoom: 19, maxNativeZoom: 19, referrerPolicy: "strict-origin-when-cross-origin"};
+  const streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", opt).addTo(map);
+  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", opt);
   L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
 }
 const pinIcon = (text, color, cls) => L.divIcon({className: "", iconSize: cls ? [34, 34] : [26, 26], iconAnchor: cls ? [17, 17] : [13, 13],

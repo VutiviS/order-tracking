@@ -53,7 +53,8 @@ CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com 
        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; "
        "img-src 'self' data: blob: https:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; "
        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
-SECURITY_HEADERS = [("X-Content-Type-Options", "nosniff"), ("Referrer-Policy", "no-referrer"),
+# only the site's address goes to other sites (never the tracking link itself); map servers refuse requests without it
+SECURITY_HEADERS = [("X-Content-Type-Options", "nosniff"), ("Referrer-Policy", "strict-origin-when-cross-origin"),
                     ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
                     ("Permissions-Policy", "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()"),
                     ("Cross-Origin-Opener-Policy", "same-origin")]
@@ -263,6 +264,29 @@ def tapped_at(body: dict, now: datetime) -> datetime:
     return (now - timedelta(seconds=ago)).replace(microsecond=0) if 0 < ago <= 86400 else now
 
 
+def one_trip_per_order(trips: list) -> list:
+    """The driver sees each order on one trip only: the one really carrying it (furthest along, then the latest, then
+    the one with most stops, as Order Tracking > Tidy up trips decides). A copy left with nothing on it is not shown,
+    so a duplicate trip can't be started by mistake."""
+    rank = {"Planned": 1, "Loaded": 2, "Departed": 3}
+    best = {}
+    for t in trips:
+        if t.get("status") in rank:
+            key = (rank[t["status"]], str(t.get("trip_date") or ""), len(t.get("orders") or []), str(t.get("trip_id")))
+            for o in t.get("orders") or []:
+                if str(o) not in best or key > best[str(o)][0]:
+                    best[str(o)] = (key, t.get("trip_id"))
+    out = []
+    for t in trips:
+        if t.get("status") in rank and t.get("orders"):
+            mine = [o for o in t["orders"] if best[str(o)][1] == t.get("trip_id")]
+            if not mine:
+                continue
+            t = dict(t, orders=mine)
+        out.append(t)
+    return out
+
+
 def op_of(body: dict) -> str:
     """The phone's id for one tap: the same step sent twice (no answer the first time) is saved once."""
     return str(body.get("op") or "")[:40]
@@ -361,6 +385,7 @@ class Drivers:
                  if t.get("status") not in ("Completed", "Cancelled") or str(t.get("trip_date"))[:10] >= recent
                  or str(t.get("updated_at") or "")[:10] >= recent]
         trips.sort(key=lambda t: (str(t.get("trip_date")), str(t.get("trip_id"))))
+        trips = one_trip_per_order(trips)
         orders = self._orders_for_driver(trips)
         out = []
         for t in trips:

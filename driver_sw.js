@@ -1,6 +1,6 @@
 // INVENTRA driver app: opens without signal. The page, the logo and the map library are kept on the phone; saving
 // always goes to the server (the page itself keeps steps tapped without signal and sends them later).
-const CACHE = "inventra-driver-v3";
+const CACHE = "inventra-driver-v4";
 const TILES = CACHE + "-tiles";
 const SHELL = ["/driver", "/logo.svg", "/favicon.svg", "/icon-192.png", "/manifest.json"];
 
@@ -32,10 +32,18 @@ self.addEventListener("fetch", e => {
   const tile = /tile\.openstreetmap\.org|arcgisonline\.com/.test(u.host);
   const kept = tile || u.origin === location.origin || /unpkg\.com|cdn\.jsdelivr\.net|fonts\.(googleapis|gstatic)\.com/.test(u.host);
   if (!kept) return;
+  if (tile) {                                      // map pieces: fresh when online, the kept copy without signal
+    e.respondWith(fetch(r).then(res => {
+      const copy = res.clone();
+      caches.open(TILES).then(c => c.put(r, copy)).then(() => trim(TILES, 600));
+      return res;
+    }).catch(() => caches.match(r)));
+    return;
+  }
   e.respondWith(caches.match(r).then(hit => hit || fetch(r).then(res => {
     if (res.ok || res.type === "opaque") {
       const copy = res.clone();
-      caches.open(tile ? TILES : CACHE).then(c => c.put(r, copy)).then(() => tile && trim(TILES, 600));
+      caches.open(CACHE).then(c => c.put(r, copy));
     }
     return res;
   })));

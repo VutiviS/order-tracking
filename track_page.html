@@ -438,7 +438,8 @@ function paintVehicle(d) {
   if (show) loadLeaflet().then(() => {
     const dest = d.dest_lat != null ? [d.dest_lat, d.dest_lng] : null;
     if (!map) { map = L.map("map", {zoomControl: true, attributionControl: true}).setView([d.lat, d.lng], 13);
-      const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 18, attribution: "© OpenStreetMap"}).addTo(map);
+      const streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+                                  {maxZoom: 18, attribution: "Map © Esri"}).addTo(map);
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
                               {maxZoom: 18, attribution: "Imagery © Esri"});
       L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
