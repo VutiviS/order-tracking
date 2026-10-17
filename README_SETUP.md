@@ -19,6 +19,9 @@ This adds the `order_tracking` table. Until then customers only see "received" a
    - Start command: `python track_server.py`
 4. Under **Environment**, add:
    - `SUPABASE_URL` and `SUPABASE_KEY`: the **same** values as the clock-in app (the tracking codes depend on the key)
+   - `INVENTRA_ACCESS_KEY`: the private access key from INVENTRA (Settings > Security > Show the access key).
+     It signs the tracking links and driver sign-ins, and opens the database once it is locked. Never put it in
+     the GitHub files.
    - `COMPANY_NAME`: your company name
    - `COMPANY_PHONE`, `COMPANY_EMAIL`, `COMPANY_WHATSAPP` (e.g. `27821234567`): shown as "Call us / E-mail / WhatsApp"
 5. When it is live, open `https://YOUR-LINK/api/health`: it should say `"ok": true`.

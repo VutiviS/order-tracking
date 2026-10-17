@@ -15,201 +15,511 @@
 <title>Deliveries · {{COMPANY}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  picture { display:flex; flex:none; align-items:center; }
-  :root { --navy:#052B63; --green:#2F8F2A; --red:#B42318; --amber:#B45309; --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A;
-          --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16;
-          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  :root { --navy:#052B63; --navy2:#0A3D8F; --green:#2F8F2A; --green2:#23701F; --red:#B42318; --amber:#B45309; --blue:#2563EB;
+          --bg:#EEF1F6; --card:#FFFFFF; --ink:#0F172A; --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4;
+          --err-bg:#FBEAE8; --err-ink:#8A1C12; --ok-bg:#EAF4E3; --ok-ink:#2F6B16; --warn-bg:#FFF4E0; --warn-ink:#8A4B06;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; --bar:58px; }
   @media (prefers-color-scheme: dark) {
     :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
-            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; }
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; --warn-bg:#2B1F0C; --warn-ink:#F5C77A; }
   }
-  * { box-sizing:border-box; border-radius:0; -webkit-tap-highlight-color:transparent; }
+  * { box-sizing:border-box; border-radius:0 !important; -webkit-tap-highlight-color:transparent; }
   html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); min-height:100vh; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.45 var(--font); min-height:100vh; min-height:100dvh;
+         -webkit-text-size-adjust:100%; }
   button, input, textarea { font:inherit; color:inherit; }
   .hidden { display:none !important; }
-  .bar { background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 10px) 16px 10px; }
-  .bar .in { max-width:560px; margin:0 auto; display:flex; align-items:center; gap:10px; }
-  .bar img { height:34px; }
-  .bar .t { flex:1; min-width:0; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .bar button { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 10px; font-size:13px; }
-  main { max-width:560px; margin:0 auto; padding:14px 14px 40px; }
-  .card { background:var(--card); border:1px solid var(--line); padding:16px; margin-bottom:12px; }
-  h2 { margin:0 0 6px; font-size:18px; } h3 { margin:0 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
-  .sub { color:var(--muted); font-size:13px; margin:0 0 10px; }
-  label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; }
-  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; }
-  textarea { min-height:64px; }
-  .btn { display:block; width:100%; border:0; background:var(--navy); color:#fff; font-weight:600; padding:15px; margin-top:12px;
-         font-size:16px; cursor:pointer; text-align:center; text-decoration:none; }
-  .btn.green { background:var(--green); } .btn.red { background:var(--red); } .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
-  .btn[disabled] { opacity:.6; }
+  a { color:inherit; }
+
+  /* ---- top bar ---- */
+  .bar { position:sticky; top:0; z-index:1200; background:var(--navy); color:#fff;
+         padding:calc(env(safe-area-inset-top) + 8px) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
+  .bar .in { max-width:1280px; margin:0 auto; display:flex; align-items:center; gap:10px; min-height:40px; }
+  .bar picture { display:flex; flex:none; align-items:center; } .bar img { height:30px; display:block; }
+  .bar .ttl { flex:1; min-width:0; }
+  .bar .t { font-weight:700; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar .st { font-size:12px; opacity:.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ibtn { flex:none; background:transparent; border:1px solid rgba(255,255,255,.35); color:#fff; height:40px; min-width:40px;
+          padding:0 10px; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .ibtn svg { width:20px; height:20px; }
+  .net { flex:none; font-size:12px; font-weight:700; padding:4px 8px; background:rgba(255,255,255,.14); white-space:nowrap; }
+  .net.off { background:#B45309; } .net.wait { background:#B45309; }
+  .menu { position:fixed; z-index:1300; right:max(12px, env(safe-area-inset-right)); top:calc(env(safe-area-inset-top) + 58px);
+          background:var(--card); border:1px solid var(--line); box-shadow:0 10px 30px rgba(0,0,0,.18); min-width:220px; }
+  .menu button, .menu a { display:block; width:100%; text-align:left; padding:14px 16px; border:0; border-top:1px solid var(--line);
+          background:none; font-weight:600; text-decoration:none; cursor:pointer; }
+  .menu > :first-child { border-top:0; }
+
+  /* ---- layout: one column on phones, list + map side by side on tablets and in landscape ---- */
+  main { max-width:640px; margin:0 auto; padding:12px max(12px, env(safe-area-inset-left)) 0; }
+  .grid { display:grid; gap:12px; grid-template-columns:minmax(0, 1fr); }
+  .card { background:var(--card); border:1px solid var(--line); padding:16px; }
+  @media (min-width:980px), (orientation:landscape) and (min-width:720px) {
+    main { max-width:1280px; padding:16px 20px 0; }
+    #trip .grid { grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);
+                  grid-template-areas:"head map" "hero map" "smart map" "stops map" "step map"; align-items:start; }
+    #trip .grid > .a-head { grid-area:head; } #trip .grid > .a-hero { grid-area:hero; } #trip .grid > .a-smart { grid-area:smart; }
+    #trip .grid > .a-stops { grid-area:stops; } #trip .grid > .a-step { grid-area:step; }
+    #trip .grid > .a-map { grid-area:map; position:sticky; top:calc(var(--bar) + 16px); }
+    #trip #tmap { height:calc(100vh - var(--bar) - 70px); height:calc(100dvh - var(--bar) - 70px); min-height:420px; }
+    #trip .dock { width:calc((100% - 12px) / 2.15); }
+    #stop .grid { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);
+                  grid-template-areas:"loc loc" "head map" "pod map" "other map" "fail map"; align-items:start; }
+    #stop .grid > .a-loc { grid-area:loc; } #stop .grid > .a-head { grid-area:head; } #stop .grid > .a-pod { grid-area:pod; }
+    #stop .grid > .a-other { grid-area:other; } #stop .grid > .a-fail { grid-area:fail; }
+    #stop .grid > .a-map { grid-area:map; position:sticky; top:calc(var(--bar) + 16px); }
+    #stop #smap { height:calc(100vh - var(--bar) - 70px); height:calc(100dvh - var(--bar) - 70px); min-height:380px; }
+    #stop .dock { width:calc((100% - 12px) / 2); }
+    #trips .list { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
+    #trips .list > .card { margin:0; }
+  }
+  @media (max-width:360px) { main { padding:8px 8px 0; } .card { padding:13px; } body { font-size:14px; } }
+
+  h2 { margin:0 0 4px; font-size:19px; line-height:1.25; } h3 { margin:0 0 10px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13.5px; margin:0 0 10px; }
+  label { display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+  input, textarea { width:100%; border:1px solid var(--line); background:var(--card); padding:13px 12px; font-size:16px; }
+  input:focus, textarea:focus { outline:2px solid var(--navy2); outline-offset:-1px; }
+  textarea { min-height:64px; resize:vertical; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:54px; border:0; background:var(--navy);
+         color:#fff; font-weight:700; padding:12px 14px; margin-top:10px; font-size:16.5px; cursor:pointer; text-align:center;
+         text-decoration:none; transition:transform .08s, filter .15s; user-select:none; }
+  .btn:active { transform:scale(.985); filter:brightness(.92); }
+  .btn.green { background:var(--green); } .btn.red { background:var(--red); } .btn.amber { background:var(--amber); }
+  .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); font-weight:600; }
+  .btn.small { min-height:44px; font-size:14.5px; padding:8px 10px; }
+  .btn[disabled] { opacity:.6; pointer-events:none; }
+  .btn svg { width:20px; height:20px; flex:none; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .row2 .btn { margin-top:8px; }
-  .msg { padding:10px 12px; margin-top:10px; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
-  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
-  .stop { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-top:1px solid var(--line); cursor:pointer; }
-  .stop:first-of-type { border-top:0; }
-  .num { width:30px; height:30px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--soft); font-weight:700; }
+  .row3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .row3 .btn { margin-top:8px; }
+  .msg { padding:11px 12px; margin-top:10px; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
+  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); } .msg.warn { background:var(--warn-bg); color:var(--warn-ink); }
+  .pill { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; background:var(--soft); color:var(--ink); }
+  .pill.go { background:#DCEBFF; color:#0A3D8F; } .pill.ok { background:var(--ok-bg); color:var(--ok-ink); } .pill.bad { background:var(--err-bg); color:var(--err-ink); }
+  .pill.warn { background:var(--warn-bg); color:var(--warn-ink); }
+  .muted { color:var(--muted); }
+
+  /* ---- the bottom action bar: the next thing to do, where the thumb is ---- */
+  .dock { position:sticky; bottom:0; z-index:1100; margin:0 -2px; padding:10px 2px calc(12px + env(safe-area-inset-bottom));
+          background:linear-gradient(to bottom, transparent, var(--bg) 28%); }
+  .dock .btn { margin-top:0; min-height:58px; font-size:17px; box-shadow:0 6px 18px rgba(5,43,99,.22);
+               display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:34px; }
+  @media (max-width:360px) { .btn.small { font-size:13px; padding:6px 4px; } .dock .btn { font-size:15.5px; } }
+  @media (orientation:landscape) and (max-height:560px) { .dock { padding-top:6px; } .dock .btn { min-height:46px; line-height:24px; font-size:15.5px; } }
+  .dock .btn + .btn { margin-top:8px; }
+
+  /* ---- trip ---- */
+  .bigline { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-top:8px; }
+  .bigline b { font-size:26px; font-weight:800; line-height:1; }
+  .progress { height:8px; background:var(--soft); margin-top:12px; overflow:hidden; } .progress i { display:block; height:100%; background:var(--green); transition:width .4s; }
+  .hero { background:var(--navy); color:#fff; border-color:var(--navy); }
+  .hero.near { background:var(--green2); border-color:var(--green2); }
+  .hero .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; opacity:.85; font-weight:700; }
+  .hero h2 { font-size:22px; margin:6px 0 2px; } .hero .addr { opacity:.9; font-size:14px; }
+  .hero .far { display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; font-size:14px; } .hero .far b { font-size:20px; }
+  .hero .btn { background:#fff; color:var(--navy); } .hero.near .btn { color:var(--green2); }
+  .hero .btn.ghost { background:transparent; color:#fff; border-color:rgba(255,255,255,.45); }
+  .smart { border-left:4px solid var(--amber); }
+  .stop { display:flex; gap:12px; align-items:center; padding:12px 0; border-top:1px solid var(--line); cursor:pointer; }
+  .stop:first-child { border-top:0; } .stop:active { background:var(--soft); }
+  .num { width:34px; height:34px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--soft); font-weight:800; }
   .stop.done .num { background:var(--green); color:#fff; } .stop.bad .num { background:var(--red); color:#fff; }
-  .stop .who { font-weight:600; } .stop .where { font-size:13px; color:var(--muted); }
+  .stop.next .num { background:var(--navy); color:#fff; } .stop.next { box-shadow:inset 3px 0 0 var(--navy); padding-left:8px; }
+  .stop .who { font-weight:700; } .stop .where { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+  .stop .mid { flex:1; min-width:0; } .stop .right { text-align:right; font-size:12.5px; color:var(--muted); flex:none; }
+  .mapbox { height:250px; border:1px solid var(--line); background:var(--soft); position:relative; z-index:0; isolation:isolate; }
+  .a-map.card { padding:0; } .a-map .mapbox { border:0; }
+  .pin { font:800 12px/26px Inter, Arial, sans-serif; color:#fff; text-align:center; width:26px; height:26px; border:2px solid #fff;
+         box-shadow:0 2px 6px rgba(0,0,0,.35); }
+  .pin.next { width:34px; height:34px; line-height:30px; font-size:14px; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(5,43,99,.55); } 70% { box-shadow:0 0 0 14px rgba(5,43,99,0); } 100% { box-shadow:0 0 0 0 rgba(5,43,99,0); } }
+
+  /* ---- stop ---- */
   .seg { display:grid; grid-template-columns:repeat(4, 1fr); border:1px solid var(--line); }
-  .seg button { border:0; border-left:1px solid var(--line); background:var(--card); padding:12px 4px; font-weight:600; font-size:14px; }
+  .seg button { border:0; border-left:1px solid var(--line); background:var(--card); min-height:48px; padding:8px 2px; font-weight:700; font-size:14px; cursor:pointer; }
   .seg button:first-child { border-left:0; } .seg button.on { background:var(--navy); color:#fff; }
-  .item { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--line); }
-  .item:first-child { border-top:0; } .item input { width:84px; padding:8px; text-align:right; }
-  canvas.sig { width:100%; height:170px; background:#fff; border:1px solid var(--line); touch-action:none; display:block; }
-  canvas.sig.big { height:min(42vh, 320px); border:2px solid var(--navy); }
-  .statement { font-size:14px; margin:12px 0 0; padding:10px 12px; background:var(--soft); }
-  .signcard .item { font-size:14px; }
-  .gps { display:flex; gap:8px; align-items:center; font-size:13px; padding:8px 10px; margin:10px 0 0; background:var(--soft); }
-  .locoff { background:var(--err-bg); color:var(--err-ink); border-color:#B42318; } .locoff ol { margin:6px 0 10px; padding-left:20px; }
+  .seg button.on[data-c="Short"], .seg button.on[data-c="Damaged"] { background:var(--amber); } .seg button.on[data-c="Rejected"] { background:var(--red); }
+  .item { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:9px 0; border-top:1px solid var(--line); }
+  .item:first-child { border-top:0; } .item input { width:90px; padding:9px; text-align:right; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+  .chips button { border:1px solid var(--line); background:var(--card); padding:9px 11px; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .chips button:active, .chips button.on { background:var(--navy); color:#fff; border-color:var(--navy); }
+  details.fail summary { cursor:pointer; font-weight:700; list-style:none; display:flex; justify-content:space-between; align-items:center; min-height:28px; }
+  details.fail summary::after { content:"+"; font-size:22px; color:var(--muted); } details.fail[open] summary::after { content:"−"; }
+  details.fail summary::-webkit-details-marker { display:none; }
+  .gps { display:flex; gap:8px; align-items:center; font-size:13px; padding:9px 10px; margin:10px 0 0; background:var(--soft); }
   .gps .dot { width:10px; height:10px; flex:none; background:#94A0B4; }
   .gps.ok { background:var(--ok-bg); color:var(--ok-ink); } .gps.ok .dot { background:#2F8F2A; }
   .gps.warn { background:var(--err-bg); color:var(--err-ink); } .gps.warn .dot { background:#B42318; }
-  .pill { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; background:var(--soft); }
+  .locoff { background:var(--err-bg); color:var(--err-ink); border-color:#B42318; } .locoff ol { margin:6px 0 10px; padding-left:20px; }
   .photo { max-width:100%; max-height:180px; display:block; margin-top:8px; }
-  @media (max-width:360px) { main { padding:10px 10px 30px; } .seg button { font-size:12px; } }
+  .steps { display:grid; grid-template-columns:repeat(3, 1fr); gap:3px; margin:2px 0 12px; }
+  .steps span { font-size:11.5px; font-weight:700; padding:6px 4px; text-align:center; background:var(--soft); color:var(--muted); }
+  .steps span.on { background:var(--navy); color:#fff; } .steps span.done { background:var(--green); color:#fff; }
+
+  /* ---- the receiver signs (full screen; side by side when the phone is turned) ---- */
+  canvas.sig { width:100%; height:min(42vh, 320px); background:#fff; border:2px solid var(--navy); touch-action:none; display:block; }
+  .statement { font-size:14px; margin:12px 0 0; padding:10px 12px; background:var(--soft); }
+  @media (orientation:landscape) and (max-height:560px) {
+    .bar { padding-top:calc(env(safe-area-inset-top) + 4px); padding-bottom:4px; } .bar img { height:24px; } .bar .st { display:none; }
+    #sign .signgrid { display:grid; grid-template-columns:minmax(0, .9fr) minmax(0, 1.4fr); gap:14px; align-items:start; }
+    canvas.sig { height:calc(100vh - 150px); height:calc(100dvh - 150px); min-height:160px; }
+  }
+  #toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(92px + env(safe-area-inset-bottom)); z-index:1400;
+           width:min(560px, calc(100% - 24px)); box-shadow:0 8px 24px rgba(0,0,0,.2); margin:0; font-weight:600; }
+  .skel { height:16px; background:linear-gradient(90deg, var(--soft), var(--line), var(--soft)); background-size:200% 100%;
+          animation:sk 1.2s infinite; margin:8px 0; } @keyframes sk { to { background-position:-200% 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
 <header class="bar"><div class="in">
-  <picture><source media="(max-width:400px)" srcset="/favicon.svg"><img src="/logo.svg" alt="" onerror="this.remove()"></picture>
-  <div class="t" id="title">Deliveries</div>
-  <button id="back" class="hidden" type="button">Back</button>
+  <picture><source media="(max-width:420px)" srcset="/favicon.svg"><img src="/logo.svg" alt="" onerror="this.remove()"></picture>
+  <button id="back" class="ibtn hidden" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg></button>
+  <div class="ttl"><div class="t" id="title">Deliveries</div><div class="st" id="subtitle"></div></div>
+  <span class="net hidden" id="net"></span>
+  <button id="refresh" class="ibtn hidden" type="button" aria-label="Refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></button>
+  <button id="menuBtn" class="ibtn hidden" type="button" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
   <button id="out" class="hidden" type="button">Sign out</button>
 </div></header>
+<div class="menu hidden" id="menu">
+  <button type="button" id="mTrips">All my trips</button>
+  <button type="button" id="mRefresh">Refresh</button>
+  <a href="/?track">Track an order</a>
+  <button type="button" id="mOut">Sign out</button>
+</div>
 <main>
+  <!-- sign in -->
   <section id="login">
-    <div class="card">
+    <div class="card" style="max-width:460px;margin:6vh auto 0">
       <h2>Driver sign-in</h2>
-      <p class="sub">Your name and the PIN the office gave you.</p>
-      <label for="name">Your name</label><input id="name" autocomplete="name">
-      <label for="pin">PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
+      <p class="sub">Your name and the PIN the office gave you. You stay signed in on this phone.</p>
+      <label for="name">Your name</label><input id="name" autocomplete="username" autocapitalize="words" enterkeyhint="next">
+      <label for="pin">PIN</label>
+      <div style="display:flex;gap:8px"><input id="pin" type="password" inputmode="numeric" autocomplete="current-password" enterkeyhint="go" style="flex:1">
+        <button class="btn ghost" id="pinShow" type="button" style="width:auto;margin:0;min-height:0;padding:0 14px">Show</button></div>
       <button class="btn" id="go" type="button">Sign in</button>
-      <div class="msg err hidden" id="loginErr"></div>
+      <div class="msg err hidden" id="loginErr" role="alert"></div>
       <a class="btn ghost" href="/?track" style="margin-top:14px">Not a driver? Track an order</a>
     </div>
   </section>
 
-  <section id="trips" class="hidden"></section>
+  <!-- all trips -->
+  <section id="trips" class="hidden"><div class="list" id="tripList"></div></section>
 
+  <!-- one trip: progress, the next stop, the map, every stop -->
   <section id="trip" class="hidden">
-    <div class="card"><h2 id="tripTitle"></h2><p class="sub" id="tripSub"></p>
-      <label for="km" id="kmLabel">Odometer (km)</label><input id="km" inputmode="numeric">
-      <button class="btn" id="tripStep" type="button"></button>
-      <div class="msg err hidden" id="tripErr"></div>
+    <div class="grid">
+      <div class="card a-head">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+          <span class="pill" id="tripPill"></span><span class="muted" style="font-size:13px" id="tripSub"></span></div>
+        <div class="bigline"><b id="tripDone">0/0</b><span class="muted" id="tripLeft"></span></div>
+        <div class="progress"><i id="tripBar" style="width:0"></i></div>
+        <div class="msg ok hidden" id="sharing" style="margin-top:10px"></div>
+      </div>
+      <div class="card hero a-hero hidden" id="hero"></div>
+      <div class="card smart a-smart hidden" id="smart"></div>
+      <div class="card a-map"><div id="tmap" class="mapbox"></div></div>
+      <div class="card a-stops"><h3>Stops <span id="stopCount"></span></h3><div id="stops"></div></div>
+      <div class="card a-step" id="stepCard">
+        <div id="kmBox"><label for="km" id="kmLabel">Odometer (km, optional)</label><input id="km" inputmode="numeric" enterkeyhint="done"></div>
+        <button class="btn ghost small hidden" id="tripEnd" type="button">Trip done: back at base</button>
+        <div class="msg err hidden" id="tripErr" role="alert"></div>
+      </div>
     </div>
-    <div class="msg ok hidden" id="sharing"></div>
-    <div class="card"><h3>Stops</h3><div id="stops"></div></div>
+    <div class="dock" id="tripDock">
+      <button class="btn green" id="tripStep" type="button"></button>
+      <button class="btn" id="dockNext" type="button"></button>
+    </div>
   </section>
 
+  <!-- one stop: arrive, hand over, signature -->
   <section id="stop" class="hidden">
-    <div class="card locoff hidden" id="locOff">
-      <h2>Switch on location</h2>
-      <p class="sub" style="color:inherit">Deliveries are saved with the phone's location, so it must be allowed for this page.</p>
-      <b>Android (Chrome)</b>
-      <ol><li>Pull down from the top of the screen and switch <b>Location</b> on.</li>
-          <li>Tap the icon left of the web address &gt; <b>Permissions</b> &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
-      <b>iPhone (Safari)</b>
-      <ol><li>Settings &gt; Privacy &amp; Security &gt; <b>Location Services</b> on, and <b>Safari Websites</b> &gt; While Using.</li>
-          <li>Tap <b>aA</b> next to the web address &gt; Website Settings &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
-      <button class="btn" id="locRetry" type="button">I've switched it on: try again</button>
+    <div class="grid">
+      <div class="card locoff a-loc hidden" id="locOff">
+        <h2>Switch on location</h2>
+        <p class="sub" style="color:inherit">Every step is saved with the phone's location, so it must be allowed for this page.</p>
+        <b>Android (Chrome)</b>
+        <ol><li>Pull down from the top of the screen and switch <b>Location</b> on.</li>
+            <li>Tap the icon left of the web address &gt; <b>Permissions</b> &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
+        <b>iPhone (Safari)</b>
+        <ol><li>Settings &gt; Privacy &amp; Security &gt; <b>Location Services</b> on, and <b>Safari Websites</b> &gt; While Using.</li>
+            <li>Tap <b>aA</b> next to the web address &gt; Website Settings &gt; <b>Location</b> &gt; <b>Allow</b>.</li></ol>
+        <button class="btn" id="locRetry" type="button">I've switched it on: try again</button>
+      </div>
+      <div class="card a-head">
+        <div class="steps" id="flow"><span>1 · Arrive</span><span>2 · Hand over</span><span>3 · Signature</span></div>
+        <span class="pill" id="stopKind"></span>
+        <h2 id="stopTitle" style="margin-top:8px"></h2><p class="sub" id="stopSub"></p>
+        <div class="gps" id="gps" aria-live="polite"><span class="dot"></span><span id="gpsText">Finding your location…</span></div>
+        <div class="row3" id="stopLinks"></div>
+      </div>
+      <div class="card a-map hidden" id="smapCard"><div id="smap" class="mapbox"></div></div>
+      <div class="card a-other hidden" id="otherCard">
+        <h3 id="otherTitle">Done</h3>
+        <label for="onote">Note (optional)</label><textarea id="onote" maxlength="300" placeholder="e.g. 3 boxes collected"></textarea>
+      </div>
+      <div class="card a-pod" id="podCard">
+        <h3>Hand over the goods</h3>
+        <div id="itemList"></div>
+        <label>Condition</label>
+        <div class="seg" id="cond"></div>
+        <div id="issueBox" class="hidden"><label>How many were short / damaged?</label><div id="issues"></div></div>
+        <label for="note">Note (the customer sees it)</label><textarea id="note" maxlength="300"></textarea>
+        <label class="btn ghost small" style="margin:12px 0 0">Take a photo (optional)<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
+        <img id="photoPrev" class="photo hidden" alt="">
+        <div id="askBox">
+          <h3 style="margin-top:18px">Or the receiver signs on their own phone</h3>
+          <p class="sub" style="margin:0">They get a link, open it and sign. Their location is recorded too.</p>
+          <div class="row2"><button class="btn ghost small" id="askWa" type="button">Send by WhatsApp</button>
+            <button class="btn ghost small" id="askSms" type="button">Send by SMS</button></div>
+          <button class="btn ghost small" id="qrBtn" type="button">Show a QR code to scan</button>
+          <div class="msg ok hidden" id="waitNote">Waiting for the receiver to sign… this page moves on by itself.</div>
+        </div>
+        <div id="qrBox" class="hidden" style="text-align:center;margin-top:12px">
+          <div id="qr" style="display:inline-block;background:#fff;padding:10px"></div>
+          <p class="sub" style="margin:8px 0 0">The receiver scans this with their phone camera, then signs on their screen.</p>
+        </div>
+        <div class="msg err hidden" id="stopErr" role="alert"></div>
+      </div>
+      <details class="card fail a-fail" id="failBox">
+        <summary id="failSum">Couldn't deliver?</summary>
+        <div class="chips" id="whyChips"></div>
+        <textarea id="why" placeholder="What happened? The customer sees this." style="margin-top:10px"></textarea>
+        <button class="btn red" id="failed" type="button">Delivery failed</button>
+      </details>
     </div>
-    <div class="card"><h2 id="stopTitle"></h2><p class="sub" id="stopSub"></p>
-      <div class="gps" id="gps"><span class="dot"></span><span id="gpsText">Finding your location…</span></div>
-      <div id="smap" class="hidden" style="height:210px;margin-top:10px;border:1px solid var(--line)"></div>
-      <div class="row2" id="stopLinks"></div>
-      <button class="btn ghost" id="arrived" type="button">I've arrived</button>
-    </div>
-    <div class="card hidden" id="otherCard">
-      <h3 id="otherTitle">Done</h3>
-      <label for="onote">Note (optional)</label><textarea id="onote" maxlength="300" placeholder="e.g. 3 boxes collected"></textarea>
+    <div class="dock" id="stopDock">
+      <button class="btn" id="arrived" type="button">I've arrived</button>
+      <button class="btn green" id="toSign" type="button">Hand the phone over to sign →</button>
       <button class="btn green" id="otherDone" type="button">Done</button>
     </div>
-    <div class="card" id="podCard">
-      <h3>Hand over the goods</h3>
-      <label>Condition</label>
-      <div class="seg" id="cond"></div>
-      <div id="issueBox" class="hidden"><label>How many were short / damaged?</label><div id="issues"></div></div>
-      <label for="note">Note (the customer sees it)</label><textarea id="note" maxlength="300"></textarea>
-      <label class="btn ghost" style="margin:12px 0 0">Take a photo (optional)<input id="photo" type="file" accept="image/*" capture="environment" hidden></label>
-      <img id="photoPrev" class="photo hidden" alt="">
-      <h3 style="margin-top:16px">Get the receiver's signature</h3>
-      <button class="btn green" id="toSign" type="button">Sign on this phone (hand it to the receiver) →</button>
-      <div id="askBox">
-        <p class="sub" style="margin:10px 0 0">Or ask them to sign on their own phone: they get a link, open it and sign.
-          Their location is recorded too.</p>
-        <div class="row2"><button class="btn ghost" id="askWa" type="button">Send by WhatsApp</button>
-          <button class="btn ghost" id="askSms" type="button">Send by SMS</button></div>
-        <button class="btn ghost" id="qrBtn" type="button">Show a QR code to scan</button>
-        <div class="msg ok hidden" id="waitNote">Waiting for the receiver to sign… this page moves on by itself.</div>
-      </div>
-      <div id="qrBox" class="hidden" style="text-align:center;margin-top:12px">
-        <div id="qr" style="display:inline-block;background:#fff;padding:10px"></div>
-        <p class="sub" style="margin:8px 0 0">The receiver scans this with their phone camera, then signs on their screen.
-          Their phone's location is recorded too. This page updates when they have signed.</p>
-      </div>
-      <div class="msg err hidden" id="stopErr"></div>
-    </div>
-    <div class="card">
-      <h3>Couldn't deliver?</h3>
-      <textarea id="why" placeholder="e.g. nobody at the site, gate locked"></textarea>
-      <button class="btn red" id="failed" type="button">Delivery failed</button>
-    </div>
   </section>
 
-  <!-- the receiver signs (full screen, the driver hands the phone over) -->
+  <!-- the receiver signs on this phone -->
   <section id="sign" class="hidden">
     <div class="card signcard">
-      <h3 id="signCo"></h3>
-      <h2>Please sign for your delivery</h2>
-      <p class="sub" id="signOrder"></p>
-      <div id="signItems"></div>
-      <p class="statement" id="signStatement"></p>
-      <label for="rb">Your full name</label><input id="rb" autocomplete="off" autocapitalize="words">
-      <label>Sign with your finger</label>
-      <canvas class="sig big" id="sig"></canvas>
-      <div class="row2"><button class="btn ghost" id="sigClear" type="button">Clear</button>
-        <button class="btn ghost" id="signBack" type="button">Back to the driver</button></div>
-      <div class="gps" id="gps2"><span class="dot"></span><span id="gpsText2">Finding the location…</span></div>
-      <button class="btn green" id="deliver" type="button">Sign &amp; confirm</button>
-      <div class="msg err hidden" id="signErr"></div>
+      <div class="signgrid">
+        <div>
+          <h3 id="signCo"></h3>
+          <h2>Please sign for your delivery</h2>
+          <p class="sub" id="signOrder"></p>
+          <div id="signItems"></div>
+          <p class="statement" id="signStatement"></p>
+          <label for="rb">Your full name</label><input id="rb" autocomplete="off" autocapitalize="words" enterkeyhint="done">
+          <div class="gps" id="gps2"><span class="dot"></span><span id="gpsText2">Finding the location…</span></div>
+        </div>
+        <div>
+          <label style="margin-top:14px">Sign with your finger</label>
+          <canvas class="sig" id="sig"></canvas>
+          <div class="row2"><button class="btn ghost small" id="sigClear" type="button">Clear</button>
+            <button class="btn ghost small" id="signBack" type="button">Back to the driver</button></div>
+          <button class="btn green" id="deliver" type="button">Sign &amp; confirm</button>
+          <div class="msg err hidden" id="signErr" role="alert"></div>
+        </div>
+      </div>
     </div>
+    <div style="height:calc(16px + env(safe-area-inset-bottom))"></div>
   </section>
-  <div class="msg ok hidden" id="toast"></div>
+  <div class="msg ok hidden" id="toast" role="status" aria-live="polite"></div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let token = localStorage.getItem("inventra_driver") || "", data = null, curTrip = null, curStop = null, cond = "Good", photo = "";
+const COMPANY = "{{COMPANY}}";
+const K = {token: "inventra_driver", name: "inventra_driver_name", data: "inventra_driver_data", box: "inventra_driver_outbox"};
+const store = {get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+               set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+               del(k) { try { localStorage.removeItem(k); } catch (e) {} }};
+let token = (() => { try { return localStorage.getItem(K.token) || ""; } catch (e) { return ""; } })();
+let data = null, curTrip = null, curStop = null, cond = "Good", photo = "", savedAt = 0;
 const CONDS = ["Good", "Short", "Damaged", "Rejected"];
+const WHY = ["Nobody there", "Gate locked", "Wrong address", "Customer refused it", "Customer asked for another day", "Ran out of time"];
+const haptic = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
+function current() { return ["login", "trips", "trip", "stop", "sign"].find(v => !$(v).classList.contains("hidden")); }
 function view(id) {
   ["login", "trips", "trip", "stop", "sign"].forEach(v => $(v).classList.toggle("hidden", v !== id));
-  $("out").classList.toggle("hidden", id === "login" || id === "sign");
-  $("back").classList.toggle("hidden", !["trip", "stop"].includes(id));
+  const inApp = !["login", "sign"].includes(id);
+  ["menuBtn", "refresh"].forEach(b => $(b).classList.toggle("hidden", !inApp));
+  $("back").classList.toggle("hidden", !["trip", "stop"].includes(id) || (id === "trip" && (data && data.trips || []).length < 2));
+  $("menu").classList.add("hidden");
+  paintNet();
   window.scrollTo(0, 0);
 }
-function toast(t) { const m = $("toast"); m.textContent = t; m.classList.remove("hidden"); setTimeout(() => m.classList.add("hidden"), 3500); }
+function toast(t, kind) {
+  const m = $("toast"); m.textContent = t; m.className = "msg " + (kind || "ok");
+  clearTimeout(toast.t); toast.t = setTimeout(() => m.classList.add("hidden"), 3800);
+}
+function setTitle(t, sub) { $("title").textContent = t; $("subtitle").textContent = sub || ""; }
 
-// ---- GPS: read automatically (never typed) and checked against the delivery address ----
-let gpsFix = null, gpsWatch = null, gpsErr = "";
+// =====================================================================================================================
+// talking to the office: steps tapped without signal wait on the phone (with the time and place they were tapped) and
+// are sent by themselves when the signal is back; each has an id so a step sent twice is saved once
+// =====================================================================================================================
+let outbox = store.get(K.box, []), flushing = false, rejected = [];
+class Offline extends Error {}
+async function api(url, body, waitMs) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), waitMs || 30000);
+  let res;
+  try {
+    res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, signal: ctl.signal,
+                            body: JSON.stringify(Object.assign({token}, body || {}))});
+  } catch (e) { throw new Offline("No signal"); }
+  finally { clearTimeout(timer); }
+  let d = {}; try { d = await res.json(); } catch (e) {}
+  if (res.status === 401) { signOut(true); throw new Error(d.error || "Please sign in again."); }
+  if (res.status >= 502 && res.status <= 504 && !d.error) throw new Offline("The server is waking up");
+  if (!res.ok) throw new Error(d.error || "Something went wrong. Try again.");
+  return d;
+}
+function keep(d) { if (d && d.trips) { data = d; savedAt = Date.now(); store.set(K.data, {at: savedAt, data: d}); } }
+async function send(url, body) {
+  // a step: straight to the office, or kept on the phone when there is no signal
+  const job = {url, body: Object.assign({op: uid(), tapped: Date.now()}, body)};
+  if (outbox.length) { queue(job); flush(); return null; }        // keep the order of steps
+  try { const d = await api(url, job.body); keep(d); return d; }
+  catch (e) { if (e instanceof Offline) { queue(job); return null; } throw e; }
+}
+function queue(job) {
+  outbox.push(job);
+  if (!store.set(K.box, outbox) && job.body.photo) { job.body.photo = ""; store.set(K.box, outbox); toast("Phone storage is full: the photo was left out", "warn"); }
+  applyLocally(job); paintNet();
+}
+function applyLocally(job) {
+  // show the step as done straight away; the office gets it when the signal is back
+  const b = job.body, t = (data && data.trips || []).find(x => x.trip_id === b.trip_id);
+  if (!t) return;
+  if (job.url.endsWith("/trip")) t.status = {loaded: "Loaded", departed: "Departed", completed: "Completed"}[b.action] || t.status;
+  else {
+    const s = t.stops.find(x => x.order_id === b.order_id); if (!s) return;
+    if (b.action === "arrived") s.arrived = true;
+    if (b.action === "delivered") { s.done = true; s.stage_label = "Saved on the phone"; }
+    if (b.action === "failed") { s.failed = true; s.stage_label = "Not delivered (saved on the phone)"; }
+  }
+  store.set(K.data, {at: savedAt, data});
+}
+async function flush() {
+  if (flushing || !outbox.length || !token) return;
+  flushing = true; paintNet();
+  try {
+    while (outbox.length) {
+      const job = outbox[0];
+      const body = Object.assign({}, job.body, {ago: Math.max(0, Math.round((Date.now() - job.body.tapped) / 1000))});
+      try { keep(await api(job.url, body)); }
+      catch (e) {
+        if (e instanceof Offline) break;
+        rejected.push(`${job.body.order_id || job.body.trip_id}: ${e.message}`);    // the office refused it: say so
+      }
+      outbox.shift(); store.set(K.box, outbox);
+    }
+    if (!outbox.length) {
+      toast(rejected.length ? "Not saved: " + rejected.join(" · ") : "Everything is sent to the office", rejected.length ? "err" : "ok");
+      rejected = []; refreshView();
+    }
+  } finally { flushing = false; paintNet(); }
+}
+function paintNet() {
+  const n = $("net"), on = navigator.onLine !== false;
+  n.classList.toggle("hidden", current() === "login" || current() === "sign" || (on && !outbox.length));
+  n.className = "net" + (outbox.length ? " wait" : on ? "" : " off") + (n.classList.contains("hidden") ? " hidden" : "");
+  n.textContent = outbox.length ? `${outbox.length} to send` : on ? "Online" : "No signal";
+  const age = savedAt ? Math.round((Date.now() - savedAt) / 60000) : null;
+  if (current() === "trips" || current() === "trip")
+    $("subtitle").textContent = (outbox.length ? "Saved on the phone, sending when there's signal" : !on ? `No signal · from ${age} min ago` : "Up to date");
+}
+addEventListener("online", () => { paintNet(); flush(); load(true); });
+addEventListener("offline", paintNet);
+setInterval(() => {                              // keep up with the office while the page is open
+  if (document.hidden || !token) return;
+  if (outbox.length) flush();
+  else if (Date.now() - savedAt > 60000 && !["sign"].includes(current())) load(true);
+}, 15000);
+
+// =====================================================================================================================
+// sign in / out
+// =====================================================================================================================
+$("name").value = store.get(K.name, "");
+$("pinShow").onclick = () => { const p = $("pin"); p.type = p.type === "password" ? "text" : "password"; $("pinShow").textContent = p.type === "password" ? "Show" : "Hide"; };
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") $("pin").focus(); });
+$("pin").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+$("go").onclick = async () => {
+  const b = $("go"); $("loginErr").classList.add("hidden"); b.disabled = true; b.textContent = "Signing in…";
+  try {
+    const d = await api("/api/driver/login", {name: $("name").value, pin: $("pin").value}, 70000);
+    token = d.token; try { localStorage.setItem(K.token, token); } catch (e) {}
+    store.set(K.name, $("name").value.trim()); $("pin").value = "";
+    await load(false, true);
+  } catch (e) {
+    $("loginErr").textContent = e instanceof Offline ? "No signal, or the server is waking up. Try again in a moment." : e.message;
+    $("loginErr").classList.remove("hidden");
+  } finally { b.disabled = false; b.textContent = "Sign in"; }
+};
+function signOut(quiet) {
+  if (!quiet && outbox.length && !confirm(`${outbox.length} step(s) are still waiting to be sent. Sign out anyway? They will be lost.`)) return;
+  try { localStorage.removeItem(K.token); } catch (e) {}
+  store.del(K.data); if (!quiet) { outbox = []; store.del(K.box); }
+  token = ""; data = null; stopSharing(); view("login"); setTitle("Deliveries");
+}
+$("out").onclick = () => signOut();
+$("mOut").onclick = () => signOut();
+$("menuBtn").onclick = e => { e.stopPropagation(); $("menu").classList.toggle("hidden"); };
+document.addEventListener("click", e => { if (!$("menu").contains(e.target)) $("menu").classList.add("hidden"); });
+$("mTrips").onclick = () => showTrips();
+$("mRefresh").onclick = $("refresh").onclick = () => load(false);
+$("back").onclick = () => { if (current() === "stop") showTrip(curTrip.trip_id); else showTrips(); };
+
+async function load(silent, first) {
+  if (!token) return view("login");
+  try { keep(await api("/api/driver/trips", {}, first ? 70000 : 30000)); }
+  catch (e) {
+    if (!data) { const c = store.get(K.data, null); if (c) { data = c.data; savedAt = c.at; } }
+    if (!(e instanceof Offline)) { if (!silent && token) toast(e.message, "err"); }
+    else if (!silent) toast(data ? "No signal: showing your trips as they were" : "No signal yet. Your trips load when there is.", "warn");
+    if (!data) return;
+  }
+  if (outbox.length) outbox.forEach(applyLocally);            // steps still on the phone stay shown as done
+  first || !current() || current() === "login" ? route() : refreshView();
+}
+function route() {
+  // straight into the trip that matters now: out on the road, else loaded, else today's (or an older one not finished)
+  const ts = data.trips, rank = {Departed: 0, Loaded: 1, Planned: 2};
+  const open = ts.filter(t => t.status in rank).sort((a, b) => rank[a.status] - rank[b.status] || (a.date < b.date ? -1 : 1));
+  if (open.length === 1 || (open.length && open[0].status !== "Planned")) showTrip(open[0].trip_id);
+  else showTrips();
+}
+function refreshView() {
+  const v = current();
+  if (v === "trips") return showTrips();
+  if (v === "trip" && curTrip) return showTrip(curTrip.trip_id, true);
+  if ((v === "stop" || v === "sign") && curTrip) {           // don't wipe what the driver is typing
+    curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
+    curStop = curTrip.stops.find(s => s.order_id === curStop.order_id) || curStop;
+    if (v === "stop") paintStopHead();
+  }
+}
+
+// =====================================================================================================================
+// location: one GPS watch for everything (never typed); while the trip is out it also shows customers the vehicle
+// =====================================================================================================================
+let gpsFix = null, gpsWatch = null, gpsErr = "", lastSent = 0, wake = null, arrivedHint = new Set();
 function startGps() {
   if (!navigator.geolocation) { gpsErr = "This phone can't share its location."; return paintGps(); }
   if (gpsWatch !== null) return;
   gpsWatch = navigator.geolocation.watchPosition(p => {
-      gpsFix = {lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy), t: Date.now()};
-      gpsErr = ""; paintGps(); },
+      gpsFix = {lat: p.coords.latitude, lng: p.coords.longitude, accuracy: Math.round(p.coords.accuracy || 0), speed: p.coords.speed,
+                heading: p.coords.heading, t: Date.now()};
+      gpsErr = ""; paintGps(); onMove(); },
     e => { gpsErr = e.code === 1 ? "Location is blocked: allow location for this page (tap the lock or \"aA\" next to the web address > Location > Allow)."
                                  : "Can't find the location yet: step outside or near a window."; paintGps(); },
     {enableHighAccuracy: true, maximumAge: 10000, timeout: 30000});
 }
 function restartGps() {
   if (gpsWatch !== null && navigator.geolocation) navigator.geolocation.clearWatch(gpsWatch);
-  gpsWatch = null; gpsErr = ""; paintGps();
-  startGps();
+  gpsWatch = null; gpsErr = ""; paintGps(); startGps();
 }
 const blocked = () => gpsErr.startsWith("Location is blocked") || gpsErr.startsWith("This phone");
 function distM(a, b) {
@@ -217,43 +527,32 @@ function distM(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 6371000 * 2 * Math.asin(Math.sqrt(h));
 }
-// ---- a small map of the stop: the delivery point, the 300 m zone, and where the phone is ----
-let smap = null, sDest = null, sMe = null, sAcc = null, sZone = null;
-function loadLeaflet() {
-  if (window.L) return Promise.resolve();
-  return new Promise((ok, bad) => {
-    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
-    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = ok; js.onerror = bad; document.head.appendChild(js);
-  });
+const has = s => s && s.lat != null && s.lng != null;
+const pt = s => ({lat: +s.lat, lng: +s.lng});
+const fmtD = m => m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(m < 10000 ? 1 : 0) + " km";
+const roadMin = m => Math.max(1, Math.round(m * 1.3 / 1000 / 40 * 60));            // ≈ road distance at 40 km/h in town
+const near = s => gpsFix && has(s) && distM(gpsFix, pt(s)) <= 150 + Math.min(gpsFix.accuracy, 100);
+function sharingTrip() { return (data && data.trips || []).find(t => t.status === "Departed"); }
+function onMove() {
+  const out = sharingTrip();
+  if (out && navigator.onLine !== false && Date.now() - lastSent > 60000 && !outbox.length) {
+    lastSent = Date.now();
+    api("/api/driver/position", {trip_id: out.trip_id, lat: gpsFix.lat, lng: gpsFix.lng, accuracy: gpsFix.accuracy,
+                                 speed: gpsFix.speed, heading: gpsFix.heading})
+      .then(() => { const m = $("sharing"); m.textContent = "Customers can see the vehicle · sent " +
+            new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + ". Keep this page open."; m.classList.remove("hidden"); })
+      .catch(() => {});
+  }
+  if (out && !wake && "wakeLock" in navigator) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
+  const v = current();
+  if (v === "trip") { paintHero(); paintMeOnMap(); paintStopDistances(); }
+  if (v === "stop") paintArriveHint();
 }
-function stopMap() {
-  const s = curStop || {};
-  const has = s.lat != null && s.lng != null;
-  $("smap").classList.toggle("hidden", !has);
-  if (!has) return;
-  loadLeaflet().then(() => {
-    const dest = [+s.lat, +s.lng];
-    if (!smap) {
-      smap = L.map("smap", {zoomControl: true, attributionControl: false}).setView(dest, 16);
-      const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(smap);
-      const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19});
-      L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(smap);
-      sZone = L.circle(dest, {radius: 300, color: "#2F8F2A", weight: 2, dashArray: "5 4", fillOpacity: .06}).addTo(smap);
-      sDest = L.marker(dest, {icon: L.divIcon({className: "", html: '<div style="background:#052B63;color:#fff;font:700 11px/22px Inter,Arial;text-align:center;width:44px;height:22px">Drop</div>', iconSize: [44, 22], iconAnchor: [22, 22]})}).addTo(smap);
-    } else { sZone.setLatLng(dest); sDest.setLatLng(dest); smap.setView(dest, 16); }
-    setTimeout(() => smap.invalidateSize(), 60);
-    paintMe();
-  }).catch(() => $("smap").classList.add("hidden"));
-}
-function paintMe() {
-  if (!smap || !gpsFix) return;
-  const me = [gpsFix.lat, gpsFix.lng];
-  if (!sMe) { sMe = L.circleMarker(me, {radius: 8, color: "#fff", weight: 3, fillColor: "#2563EB", fillOpacity: 1}).addTo(smap);
-              sAcc = L.circle(me, {radius: gpsFix.accuracy, color: "#2563EB", weight: 1, fillOpacity: .1}).addTo(smap);
-              smap.fitBounds([me, sDest.getLatLng()], {padding: [30, 30], maxZoom: 17}); }
-  else { sMe.setLatLng(me); sAcc.setLatLng(me).setRadius(gpsFix.accuracy); }
-}
+function stopSharing() { if (wake) { wake.release(); wake = null; } }
+document.addEventListener("visibilitychange", () => { if (!document.hidden && token) { if (sharingTrip()) onMove(); if (outbox.length) flush(); else if (Date.now() - savedAt > 30000) load(true); } });
+
 function paintGps() {
+  if (current() === "trip") { paintMeOnMap(); }
   paintMe();
   $("locOff").classList.toggle("hidden", !blocked());
   [["gps", "gpsText"], ["gps2", "gpsText2"]].forEach(([box, txt]) => {
@@ -261,11 +560,10 @@ function paintGps() {
     if (gpsErr) { cls = "warn"; t = gpsErr; }
     else if (!gpsFix) t = "Finding the location…";
     else {
-      const s = curStop || {}, d = s.lat != null && s.lng != null ? distM(gpsFix, {lat: +s.lat, lng: +s.lng}) : null;
-      const near = d == null || d <= 300 + Math.min(gpsFix.accuracy, 200);
-      t = `Location found (±${gpsFix.accuracy} m)` + (d == null ? "" : ` · ${d < 1000 ? Math.round(d) + " m" : (d / 1000).toFixed(1) + " km"} from the address`) +
-          (near ? "" : " · this is not the delivery address");
-      cls = near ? "ok" : "warn";
+      const s = curStop || {}, d = has(s) ? distM(gpsFix, pt(s)) : null;
+      const ok = d == null || d <= 300 + Math.min(gpsFix.accuracy, 200);
+      t = `Location found (±${gpsFix.accuracy} m)` + (d == null ? "" : ` · ${fmtD(d)} from the address`) + (ok ? "" : " · this is not the delivery address");
+      cls = ok ? "ok" : "warn";
     }
     $(box).className = "gps " + cls; $(txt).textContent = t;
   });
@@ -290,128 +588,296 @@ async function where(need, btn) {
   }
   return {};
 }
-async function api(url, body) {
-  const res = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body || {}))});
-  let d = {}; try { d = await res.json(); } catch (e) {}
-  if (res.status === 401) { localStorage.removeItem("inventra_driver"); token = ""; view("login"); }
-  if (!res.ok) throw new Error(d.error || "No connection. Try again.");
-  return d;
+
+// =====================================================================================================================
+// maps (Leaflet, loaded only when needed)
+// =====================================================================================================================
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (loadLeaflet.p) return loadLeaflet.p;
+  return loadLeaflet.p = new Promise((ok, bad) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    css.integrity = "sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"; css.crossOrigin = "anonymous"; document.head.appendChild(css);
+    const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.integrity = "sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"; js.crossOrigin = "anonymous";
+    js.onload = ok; js.onerror = () => { loadLeaflet.p = null; bad(new Error("map")); }; document.head.appendChild(js);
+  });
+}
+function baseLayers(map) {
+  const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom: 19}).addTo(map);
+  const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {maxZoom: 19});
+  L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
+}
+const pinIcon = (text, color, cls) => L.divIcon({className: "", iconSize: cls ? [34, 34] : [26, 26], iconAnchor: cls ? [17, 17] : [13, 13],
+  html: `<div class="pin ${cls || ""}" style="background:${color}">${text}</div>`});
+let tmap = null, tLayer = null, tMe = null, tFitted = "";
+function tripMap() {
+  const stops = curTrip.stops.filter(has);
+  $("tmap").parentElement.classList.toggle("hidden", !stops.length);
+  if (!stops.length) return;
+  loadLeaflet().then(() => {
+    if (!tmap) { tmap = L.map("tmap", {zoomControl: true, attributionControl: false}); baseLayers(tmap); }
+    if (tLayer) tLayer.remove();
+    tLayer = L.layerGroup().addTo(tmap);
+    const nx = nextStop(curTrip), pts = [];
+    curTrip.stops.forEach((s, i) => {
+      if (!has(s)) return;
+      const ll = [+s.lat, +s.lng]; pts.push(ll);
+      const isNext = nx && s.order_id === nx.order_id;
+      const color = s.done ? "#2F8F2A" : s.failed ? "#B42318" : isNext ? "#052B63" : "#5B6474";
+      L.marker(ll, {icon: pinIcon(s.done ? "✓" : s.failed ? "!" : String(i + 1), color, isNext ? "next" : ""), zIndexOffset: isNext ? 1000 : 0})
+        .bindTooltip(`${i + 1}. ${esc(s.client)}`).on("click", () => showStop(s.order_id)).addTo(tLayer);
+    });
+    const left = remaining(curTrip).filter(has).map(s => [+s.lat, +s.lng]);
+    if (left.length > 1) L.polyline(left, {color: "#052B63", weight: 3, opacity: .55, dashArray: "6 6"}).addTo(tLayer);
+    setTimeout(() => {
+      tmap.invalidateSize();
+      const key = curTrip.trip_id + pts.length;
+      if (tFitted !== key) { tFitted = key; const all = gpsFix ? pts.concat([[gpsFix.lat, gpsFix.lng]]) : pts;
+        all.length > 1 ? tmap.fitBounds(all, {padding: [36, 36], maxZoom: 15}) : tmap.setView(all[0], 15); }
+      paintMeOnMap();
+    }, 60);
+  }).catch(() => $("tmap").parentElement.classList.add("hidden"));
+}
+function paintMeOnMap() {
+  if (!tmap || !gpsFix) return;
+  const me = [gpsFix.lat, gpsFix.lng];
+  if (!tMe) tMe = L.circleMarker(me, {radius: 8, color: "#fff", weight: 3, fillColor: "#2563EB", fillOpacity: 1}).addTo(tmap).bindTooltip("You");
+  else tMe.setLatLng(me);
+}
+let smap = null, sDest = null, sMe = null, sAcc = null, sZone = null;
+function stopMap() {
+  const s = curStop || {};
+  $("smapCard").classList.toggle("hidden", !has(s));
+  if (!has(s)) return;
+  loadLeaflet().then(() => {
+    const dest = [+s.lat, +s.lng];
+    if (!smap) {
+      smap = L.map("smap", {zoomControl: true, attributionControl: false}).setView(dest, 16); baseLayers(smap);
+      sZone = L.circle(dest, {radius: 300, color: "#2F8F2A", weight: 2, dashArray: "5 4", fillOpacity: .06}).addTo(smap);
+      sDest = L.marker(dest, {icon: L.divIcon({className: "", html: '<div style="background:#052B63;color:#fff;font:700 11px/22px Inter,Arial;text-align:center;width:44px;height:22px">Drop</div>', iconSize: [44, 22], iconAnchor: [22, 22]})}).addTo(smap);
+    } else { sZone.setLatLng(dest); sDest.setLatLng(dest); smap.setView(dest, 16); }
+    if (sMe) { smap.removeLayer(sMe); smap.removeLayer(sAcc); sMe = sAcc = null; }
+    setTimeout(() => { smap.invalidateSize(); paintMe(); }, 60);
+  }).catch(() => $("smapCard").classList.add("hidden"));
+}
+function paintMe() {
+  if (!smap || !gpsFix || current() !== "stop") return;
+  const me = [gpsFix.lat, gpsFix.lng];
+  if (!sMe) { sMe = L.circleMarker(me, {radius: 8, color: "#fff", weight: 3, fillColor: "#2563EB", fillOpacity: 1}).addTo(smap);
+              sAcc = L.circle(me, {radius: gpsFix.accuracy, color: "#2563EB", weight: 1, fillOpacity: .1}).addTo(smap);
+              smap.fitBounds([me, sDest.getLatLng()], {padding: [30, 30], maxZoom: 17}); }
+  else { sMe.setLatLng(me); sAcc.setLatLng(me).setRadius(gpsFix.accuracy); }
 }
 
-$("go").onclick = async () => {
-  $("loginErr").classList.add("hidden");
-  try {
-    const d = await api("/api/driver/login", {name: $("name").value, pin: $("pin").value});
-    token = d.token; localStorage.setItem("inventra_driver", token); load();
-  } catch (e) { $("loginErr").textContent = e.message; $("loginErr").classList.remove("hidden"); }
-};
-$("out").onclick = () => { localStorage.removeItem("inventra_driver"); token = ""; view("login"); };
-$("back").onclick = () => { if (!$("stop").classList.contains("hidden")) showTrip(curTrip.trip_id); else showTrips(); };
-
-async function load() { try { data = await api("/api/driver/trips"); showTrips(); share(); } catch (e) { if (token) toast(e.message); } }
-
-// ---- while a trip is out (Departed) the phone shares the vehicle's position with the office and the customers ----
-let watchId = null, lastSent = 0, sharingTrip = null, wake = null;
-function share() {
-  const out = (data && data.trips || []).find(t => t.status === "Departed");
-  if (!out) { stopShare(); return; }
-  sharingTrip = out.trip_id;
-  if (watchId === null && navigator.geolocation) {
-    watchId = navigator.geolocation.watchPosition(async p => {
-      if (Date.now() - lastSent < 60000) return;            // at most once a minute
-      lastSent = Date.now();
-      try { await api("/api/driver/position", {trip_id: sharingTrip, lat: p.coords.latitude, lng: p.coords.longitude,
-                                                accuracy: p.coords.accuracy, speed: p.coords.speed});
-            const m = $("sharing"); m.textContent = "Sharing the vehicle's location with customers · last sent " +
-              new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}) + ". Keep this page open."; m.classList.remove("hidden");
-      } catch (e) {}
-    }, () => { const m = $("sharing"); m.textContent = "Location is off: allow location for this page so customers can see the vehicle."; m.classList.remove("hidden"); },
-    {enableHighAccuracy: true, maximumAge: 30000, timeout: 30000});
-  }
-  if ("wakeLock" in navigator && !wake) navigator.wakeLock.request("screen").then(w => { wake = w; w.addEventListener("release", () => wake = null); }).catch(() => {});
+// =====================================================================================================================
+// trips
+// =====================================================================================================================
+const remaining = t => t.stops.filter(s => !s.done && !s.failed);
+const nextStop = t => remaining(t)[0];
+function dayText(d) {
+  const today = (data && data.today) || new Date().toISOString().slice(0, 10);
+  const y = new Date(new Date(today).getTime() - 86400000).toISOString().slice(0, 10);
+  return d === today ? "Today" : d === y ? "Yesterday" : new Date(d + "T12:00").toLocaleDateString([], {weekday: "short", day: "numeric", month: "short"});
 }
-function stopShare() {
-  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-  if (wake) { wake.release(); wake = null; }
-  sharingTrip = null; const m = $("sharing"); if (m) m.classList.add("hidden");
-}
-document.addEventListener("visibilitychange", () => { if (!document.hidden && data) share(); });
-
 function showTrips() {
-  $("title").textContent = "Hello " + (data.name || "");
-  $("trips").innerHTML = data.trips.length ? data.trips.map(t => {
-    const done = t.stops.filter(s => s.done).length;
-    return `<div class="card" onclick="showTrip('${esc(t.trip_id)}')" style="cursor:pointer"><span class="pill">${esc(t.status)}</span>
-      <h2 style="margin-top:6px">${esc(t.trip_id)}</h2><p class="sub">${esc(t.date)} · ${esc(t.vehicle)} · ${done} of ${t.stops.length} delivered</p></div>`;
-  }).join("") : `<div class="card"><h2>No trips</h2><p class="sub">The office hasn't given you a trip for today.</p>
+  setTitle("Hello " + ((data && data.name) || "").split(" ")[0]);
+  const ts = (data && data.trips) || [];
+  $("tripList").innerHTML = ts.length ? ts.map(t => {
+    const done = t.stops.filter(s => s.done).length, old = t.date < (data.today || "") && !["Completed", "Cancelled"].includes(t.status);
+    return `<div class="card" onclick="showTrip('${esc(t.trip_id)}')" style="cursor:pointer;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="pill ${t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : ""}">${esc(t.status)}</span>
+      <span class="${old ? "pill warn" : "muted"}" style="font-size:13px">${old ? "Not finished · " : ""}${esc(dayText(t.date))}</span></div>
+      <h2 style="margin-top:8px">${t.stops.length} stop${t.stops.length === 1 ? "" : "s"} · ${esc(t.vehicle.split("·")[0])}</h2>
+      <p class="sub" style="margin:0">${esc(t.trip_id)} · ${done} of ${t.stops.length} delivered</p>
+      <div class="progress"><i style="width:${t.stops.length ? done / t.stops.length * 100 : 0}%"></i></div></div>`;
+  }).join("") : `<div class="card"><h2>No trips</h2><p class="sub">The office hasn't given you a trip yet.</p>
       <button class="btn ghost" onclick="load()">Check again</button></div>`;
-  view("trips");
+  view("trips"); paintNet();
 }
-
-function showTrip(id) {
+function showTrip(id, keepScroll) {
   curTrip = data.trips.find(t => t.trip_id === id);
   if (!curTrip) return showTrips();
-  if (curTrip.status !== "Completed") startGps();    // ask for location now, not at the customer's door
-  const t = curTrip;
-  $("title").textContent = t.trip_id;
-  $("tripTitle").textContent = `${t.trip_id} · ${t.status}`;
-  $("tripSub").textContent = `${t.date} · ${t.vehicle}`;
-  const step = {Planned: ["loaded", "Everything is loaded"], Loaded: ["departed", "I'm leaving now"], Departed: ["completed", "Trip done: back at base"]}[t.status];
-  $("tripStep").classList.toggle("hidden", !step);
-  $("km").parentElement && ($("km").classList.toggle("hidden", !step || step[0] === "departed"), $("kmLabel").classList.toggle("hidden", !step || step[0] === "departed"));
+  const y = window.scrollY, t = curTrip, done = t.stops.filter(s => s.done).length, left = remaining(t);
+  if (t.status !== "Completed") startGps();          // ask for location now, not at the customer's door
+  setTitle(t.status === "Departed" ? "On the road" : t.status === "Completed" ? "Trip done" : dayText(t.date) + "'s trip");
+  $("tripPill").textContent = t.status; $("tripPill").className = "pill " + (t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : "");
+  $("tripSub").textContent = `${t.trip_id} · ${t.vehicle.split("·")[0]}`;
+  $("tripDone").textContent = `${done}/${t.stops.length}`;
+  $("tripBar").style.width = (t.stops.length ? done / t.stops.length * 100 : 0) + "%";
+  $("stopCount").textContent = `(${t.stops.length})`;
+  const nx = nextStop(t);
+  $("stops").innerHTML = t.stops.map((s, i) => {
+    const isNext = nx && s.order_id === nx.order_id && t.status === "Departed";
+    const chip = s.done ? `<span class="pill ok">${esc(s.stage_label === "Saved on the phone" ? "Saved" : s.kind === "Delivery" ? "Delivered" : s.stage_label)}</span>`
+               : s.failed ? `<span class="pill bad">Not done</span>` : s.arrived ? `<span class="pill go">Arrived</span>`
+               : s.eta ? `<span>${esc(s.eta)}</span>` : "";
+    return `<div class="stop ${s.done ? "done" : s.failed ? "bad" : isNext ? "next" : ""}" onclick="showStop('${esc(s.order_id)}')">
+      <div class="num">${s.done ? "✓" : s.failed ? "!" : i + 1}</div>
+      <div class="mid"><div class="who">${esc(s.client)}</div><div class="where">${esc(s.address || "No address on file")}</div>
+        <div class="where">${stopName(s)}${s.items && s.items.length ? " · " + s.items.reduce((a, x) => a + (+x.qty || 0), 0) + " item(s)" : ""}</div></div>
+      <div class="right">${chip}<div data-dist="${esc(s.order_id)}"></div></div></div>`;
+  }).join("");
+  // what the trip needs now
+  const step = {Planned: ["loaded", "Everything is loaded ✓"], Loaded: ["departed", "I'm leaving now →"],
+                Departed: ["completed", "Trip done: back at base"]}[t.status];
+  const allDone = !left.length;
+  const dockStep = step && (t.status !== "Departed" || allDone);
+  $("tripStep").classList.toggle("hidden", !dockStep);
   if (step) { $("tripStep").textContent = step[1]; $("tripStep").dataset.action = step[0]; }
-  $("stops").innerHTML = t.stops.map((s, i) => `<div class="stop ${s.done ? "done" : s.failed ? "bad" : ""}" onclick="showStop('${esc(s.order_id)}')">
-    <div class="num">${s.done ? "✓" : i + 1}</div><div><div class="who">${esc(s.client)}</div>
-    <div class="where">${esc(s.address || "No address on file")}</div><div class="where">${s.eta ? "Planned " + esc(s.eta) + " · " : ""}${stopName(s)} · ${esc(s.stage_label)}</div></div></div>`).join("");
-  view("trip");
+  $("dockNext").classList.toggle("hidden", !(t.status === "Departed" && nx));
+  if (nx) $("dockNext").textContent = (nx.arrived ? "Continue at " : "Next stop: ") + nx.client + " →";
+  $("kmBox").classList.toggle("hidden", !(t.status === "Planned" || (t.status === "Departed" && allDone)));
+  $("kmLabel").textContent = t.status === "Planned" ? "Odometer at the start (km, optional)" : "Odometer now (km, optional)";
+  $("tripEnd").classList.toggle("hidden", !(t.status === "Departed" && !allDone));
+  $("stepCard").classList.toggle("hidden", $("kmBox").classList.contains("hidden") && $("tripEnd").classList.contains("hidden") && $("tripErr").classList.contains("hidden"));
+  $("tripDock").classList.toggle("hidden", !dockStep && $("dockNext").classList.contains("hidden"));
+  $("tripLeft").textContent = t.status === "Completed" ? "all done" : left.length ? `${left.length} to go` + finishText(t) : "every stop done";
+  view("trip"); paintNet();
+  paintHero(); paintStopDistances(); tripMap();
+  if (keepScroll) window.scrollTo(0, y);
 }
-
-$("tripStep").onclick = async () => {
-  const b = $("tripStep"); b.disabled = true; $("tripErr").classList.add("hidden");
-  try { data = await api("/api/driver/trip", Object.assign({trip_id: curTrip.trip_id, action: b.dataset.action, km: $("km").value}, await where(false)));
-        $("km").value = ""; toast(b.dataset.action === "departed" ? "Safe trip! Customers can now see the vehicle." : "Saved");
-        lastSent = 0; showTrip(curTrip.trip_id); share(); }
-  catch (e) { $("tripErr").textContent = e.message; $("tripErr").classList.remove("hidden"); }
-  finally { b.disabled = false; }
+function finishText(t) {
+  // when the remaining stops should be done: from here through each stop, plus 12 minutes a stop
+  const left = remaining(t); if (!gpsFix || !left.length || left.some(s => !has(s))) return "";
+  let at = {lat: gpsFix.lat, lng: gpsFix.lng}, min = 0;
+  left.forEach(s => { min += roadMin(distM(at, pt(s))) + 12; at = pt(s); });
+  return " · done about " + new Date(Date.now() + min * 60000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+}
+function paintStopDistances() {
+  if (!gpsFix || !curTrip) return;
+  curTrip.stops.forEach(s => { const el = document.querySelector(`[data-dist="${CSS.escape(s.order_id)}"]`);
+    if (el) el.textContent = has(s) && !s.done && !s.failed ? fmtD(distM(gpsFix, pt(s))) : ""; });
+  const left = remaining(curTrip);
+  if (left.length && curTrip.status !== "Completed") $("tripLeft").textContent = `${left.length} to go` + finishText(curTrip);
+}
+function paintHero() {
+  const t = curTrip, h = $("hero"), nx = t && nextStop(t);
+  if (!t || !nx || !["Departed", "Loaded"].includes(t.status)) { h.classList.add("hidden"); $("smart").classList.add("hidden"); return; }
+  const d = gpsFix && has(nx) ? distM(gpsFix, pt(nx)) : null, here = t.status === "Departed" && near(nx);
+  const nav = has(nx) ? `${nx.lat},${nx.lng}` : nx.address;
+  h.className = "card hero a-hero" + (here ? " near" : "");
+  h.innerHTML = `<div class="k">${here ? "You're here" : t.status === "Loaded" ? "First stop" : "Next stop"} · ${remaining(t).length} to go</div>
+    <h2>${esc(nx.client)}</h2><div class="addr">${esc(nx.address || "No address on file")}</div>
+    ${d != null ? `<div class="far"><span><b>${fmtD(d)}</b> away</span><span><b>${roadMin(d)} min</b> by road</span>${nx.eta ? `<span>planned <b>${esc(nx.eta)}</b></span>` : ""}</div>` : nx.eta ? `<div class="far"><span>planned <b>${esc(nx.eta)}</b></span></div>` : ""}
+    ${here ? `<button class="btn" type="button" onclick="arriveFromHero('${esc(nx.order_id)}')">I'm here: I've arrived</button>`
+           : nav ? `<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(nav)}">Navigate</a>` : ""}
+    <div class="${nx.phone ? "row3" : "row2"}">
+      ${nx.phone ? `<a class="btn ghost small" href="tel:${esc(String(nx.phone).replace(/[^0-9+]/g, ""))}">Call</a>
+      <a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(nx.phone)}?text=${encodeURIComponent(comingText(nx, d))}">I'm coming</a>` : ""}
+      <button class="btn ghost small" type="button" onclick="showStop('${esc(nx.order_id)}')">Open stop</button>
+      ${!nx.phone && nav ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://waze.com/ul?navigate=yes&${has(nx) ? "ll=" + nx.lat + "," + nx.lng : "q=" + encodeURIComponent(nx.address)}">Waze</a>` : ""}
+    </div>`;
+  if (here && !arrivedHint.has(nx.order_id) && !nx.arrived) { arrivedHint.add(nx.order_id); haptic([80, 60, 80]); toast(`You're at ${nx.client}. Tap "I've arrived".`); }
+  // smarter order: a stop much closer than the planned next one
+  const sm = $("smart"), alt = gpsFix && t.status === "Departed" ? remaining(t).filter(has).map(s => [s, distM(gpsFix, pt(s))]).sort((a, b) => a[1] - b[1])[0] : null;
+  if (alt && d != null && alt[0].order_id !== nx.order_id && d - alt[1] > 1500) {
+    sm.innerHTML = `<b>${esc(alt[0].client)}</b> is closer: ${fmtD(alt[1])} away (the planned next stop is ${fmtD(d)}).
+      <button class="btn ghost small" type="button" onclick="showStop('${esc(alt[0].order_id)}')">Go there first</button>`;
+    sm.classList.remove("hidden");
+  } else sm.classList.add("hidden");
+}
+const comingText = (s, d) => `Hello ${s.client || ""}, this is your driver from ${COMPANY} with order ${s.order_id}. ` +
+  (d != null ? `I'm about ${roadMin(d)} minutes away.` : "I'm on my way to you.");
+async function arriveFromHero(oid) { showStop(oid); $("arrived").click(); }
+$("dockNext").onclick = () => { const nx = nextStop(curTrip); if (nx) showStop(nx.order_id); };
+async function tripStepNow(action, btn) {
+  $("tripErr").classList.add("hidden"); btn.disabled = true;
+  try {
+    const loc = await where(false);
+    const d = await send("/api/driver/trip", Object.assign({trip_id: curTrip.trip_id, action, km: $("km").value}, loc));
+    $("km").value = ""; haptic(40);
+    toast(d === null ? "Saved on the phone: it goes to the office when there's signal"
+          : action === "departed" ? "Safe trip! Customers can now see the vehicle." : action === "completed" ? "Trip done. Thank you!" : "Saved");
+    lastSent = 0; showTrip(curTrip.trip_id); if (action === "departed" && gpsFix) onMove();
+  } catch (e) { $("tripErr").textContent = e.message; $("tripErr").classList.remove("hidden"); $("stepCard").classList.remove("hidden"); }
+  finally { btn.disabled = false; }
+}
+$("tripStep").onclick = () => tripStepNow($("tripStep").dataset.action, $("tripStep"));
+$("tripEnd").onclick = () => {
+  const n = remaining(curTrip).length;
+  if (confirm(`${n} stop(s) aren't done yet. Finish the trip anyway? They stay "on the way" for the office.`)) tripStepNow("completed", $("tripEnd"));
 };
 
+// =====================================================================================================================
+// one stop
+// =====================================================================================================================
 function stopName(s) {
   return s.kind === "Collection" ? "COLLECT · " + esc(s.order_id) : s.kind === "Stop" ? "Stop" : "Order " + esc(s.order_id);
 }
+function intlPhone(p) {
+  let d = String(p || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "27" + d.slice(1);                     // South African numbers
+  return d;
+}
+function paintStopHead() {
+  const s = curStop, other = s.kind && s.kind !== "Delivery";
+  $("stopSub").textContent = (s.address || "No address on file") + (s.eta ? ` · planned ${s.eta}` : "");
+  $("stopKind").textContent = stopName(s).replace(/&amp;/g, "&") + (s.done ? (other ? " · done" : " · delivered") : s.failed ? " · not done" : s.arrived ? " · arrived" : "");
+  $("stopKind").className = "pill " + (s.done ? "ok" : s.failed ? "bad" : s.arrived ? "go" : "");
+  const stage = s.done ? 3 : s.arrived ? 1 : 0;
+  [...$("flow").children].forEach((el, i) => el.className = i < stage ? "done" : i === stage ? "on" : "");
+  $("flow").classList.toggle("hidden", !!other);
+  // the bottom button: arrive first, then the signature (or Done for a collection)
+  const open = !s.done && !s.failed;
+  $("arrived").classList.toggle("hidden", !open || !!s.arrived);
+  $("toSign").classList.toggle("hidden", !open || !s.arrived || !!other);
+  $("otherDone").classList.toggle("hidden", !open || !s.arrived || !other);
+  $("askBox").classList.toggle("hidden", !open || !s.link);
+  $("failBox").classList.toggle("hidden", !open);
+  $("podCard").classList.toggle("hidden", !!other || !open);
+  $("otherCard").classList.toggle("hidden", !other || !open);
+  paintArriveHint();
+}
+function paintArriveHint() {
+  if (!curStop || curStop.arrived || curStop.done || curStop.failed) return;
+  const here = near(curStop);
+  $("arrived").className = "btn" + (here ? " green" : "");
+  $("arrived").textContent = here ? "I'm here: I've arrived" : "I've arrived";
+}
 function showStop(oid) {
   curStop = curTrip.stops.find(s => s.order_id === oid);
+  if (!curStop) return;
   const s = curStop, other = s.kind && s.kind !== "Delivery";
-  $("title").textContent = s.client;
+  setTitle(s.client, stopName(s).replace(/&amp;/g, "&"));
   $("stopTitle").textContent = s.client;
-  $("stopSub").innerHTML = `${stopName(s)} · ${esc(s.address || "no address")}` + (s.done ? (other ? " · DONE" : " · DELIVERED") : "");
-  $("podCard").classList.toggle("hidden", !!other);
-  $("otherCard").classList.toggle("hidden", !other);
   $("otherTitle").textContent = s.kind === "Collection" ? "Goods collected" : "Stop done";
-  $("otherDone").textContent = s.kind === "Collection" ? "Collected" : "Done";
+  $("otherDone").textContent = s.kind === "Collection" ? "Collected ✓" : "Done ✓";
   $("onote").value = "";
   $("failed").textContent = other ? "Couldn't do it" : "Delivery failed";
-  const links = [];
-  const q = s.lat != null && s.lng != null ? `${s.lat},${s.lng}` : s.address;
-  if (q) links.push(`<a class="btn ghost" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(q)}">Directions</a>`);
-  if (s.phone) links.push(`<a class="btn ghost" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">Call</a>`);
+  $("failSum").textContent = other ? "Couldn't do it?" : "Couldn't deliver?";
+  $("failBox").open = false;
+  const links = [], q = has(s) ? `${s.lat},${s.lng}` : s.address;
+  if (q) links.push(`<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(q)}">Directions</a>`);
+  if (s.phone) links.push(`<a class="btn ghost small" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">Call</a>`,
+                          `<a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(s.phone)}?text=${encodeURIComponent(comingText(s, gpsFix && has(s) ? distM(gpsFix, pt(s)) : null))}">WhatsApp</a>`);
   $("stopLinks").innerHTML = links.join("");
+  $("stopLinks").className = links.length === 3 ? "row3" : "row2";
   cond = "Good"; photo = ""; $("photoPrev").classList.add("hidden"); $("rb").value = ""; $("note").value = ""; $("why").value = "";
+  $("itemList").innerHTML = (s.items || []).length ? s.items.map(x => `<div class="item"><span>${esc(x.description)}</span><b>× ${esc(x.qty)}</b></div>`).join("") : "";
   paintCond();
-  $("issues").innerHTML = s.items.map((x, i) => `<div class="item"><span>${esc(x.description)} <small>(sent ${esc(x.qty)})</small></span>
+  $("issues").innerHTML = (s.items || []).map((x, i) => `<div class="item"><span>${esc(x.description)} <small class="muted">(sent ${esc(x.qty)})</small></span>
      <input type="number" min="0" max="${esc(x.qty)}" inputmode="numeric" data-i="${i}" placeholder="0"></div>`).join("");
+  $("whyChips").innerHTML = WHY.map(w => `<button type="button" onclick="pickWhy(this)">${esc(w)}</button>`).join("");
   $("stopErr").classList.add("hidden");
   $("qrBox").classList.add("hidden"); $("waitNote").classList.add("hidden"); clearInterval(qrPoll);
-  $("toSign").classList.toggle("hidden", !!s.done); $("askBox").classList.toggle("hidden", !!s.done || !s.link);
   $("askWa").classList.toggle("hidden", !s.phone); $("askSms").classList.toggle("hidden", !s.phone);
-  view("stop");
-  if (sMe) { smap.removeLayer(sMe); smap.removeLayer(sAcc); sMe = sAcc = null; }
+  view("stop"); paintStopHead();
   startGps(); paintGps(); stopMap();
 }
+function pickWhy(b) { [...$("whyChips").children].forEach(x => x.classList.toggle("on", x === b)); $("why").value = b.textContent; }
 function issuesNow() {
   return [...document.querySelectorAll("#issues input")].map(inp => {
     const x = curStop.items[+inp.dataset.i]; return {sku: x.sku, description: x.description, qty: +inp.value || 0};
   }).filter(i => i.qty > 0);
 }
+function paintCond() {
+  $("cond").innerHTML = CONDS.map(c => `<button type="button" data-c="${c}" class="${c === cond ? "on" : ""}" onclick="setCond('${c}')">${c}</button>`).join("");
+  $("issueBox").classList.toggle("hidden", !["Short", "Damaged"].includes(cond));
+  $("toSign").textContent = cond === "Rejected" ? "Receiver signs the refusal →" : "Hand the phone over to sign →";
+}
+function setCond(c) { cond = c; paintCond(); }
+
 // ---- the receiver signs on this phone ----
 $("toSign").onclick = () => {
   const s = curStop, issues = issuesNow(), note = $("note").value.trim();
@@ -419,48 +885,43 @@ $("toSign").onclick = () => {
   if (["Short", "Damaged"].includes(cond) && !issues.length) return fail("Enter how many were short or damaged.");
   if (cond !== "Good" && !note) return fail("Write a short note about the problem first.");
   $("stopErr").classList.add("hidden");
-  $("signCo").textContent = (document.title.split("·")[1] || "").trim();
+  $("signCo").textContent = COMPANY;
   $("signOrder").textContent = `Order ${s.order_id} · ${s.client}`;
-  $("signItems").innerHTML = s.items.map(x => `<div class="item"><span>${esc(x.description)}</span><b>× ${esc(x.qty)}</b></div>`).join("");
+  $("signItems").innerHTML = (s.items || []).map(x => `<div class="item"><span>${esc(x.description)}</span><b>× ${esc(x.qty)}</b></div>`).join("");
   $("signStatement").textContent = cond === "Good" ? "By signing I confirm that I received the items above in good order."
     : cond === "Rejected" ? `I refuse this delivery. Reason: ${note}`
     : `By signing I confirm that I received the items above, with this problem: ${note}` +
       (issues.length ? " (" + issues.map(i => `${i.qty} × ${i.description} ${cond.toLowerCase()}`).join(", ") + ")" : "");
   $("deliver").textContent = cond === "Rejected" ? "Sign to refuse" : "Sign & confirm";
   $("signErr").classList.add("hidden"); $("rb").value = "";
+  setTitle("Sign for your delivery", COMPANY);
   view("sign"); startGps(); paintGps();
   setTimeout(sizeSig, 60);
 };
-$("signBack").onclick = () => view("stop");
+$("signBack").onclick = () => { view("stop"); setTitle(curStop.client, stopName(curStop)); };
 let qrPoll = null;
-// ---- the receiver signs on their own phone: a link by WhatsApp or SMS, or a QR code to scan ----
 const signLink = s => location.origin + "/o/" + s.link + "#sign";
 function waitForSignature(s) {
   clearInterval(qrPoll);
   $("waitNote").classList.remove("hidden");
   qrPoll = setInterval(async () => {                                 // done when the receiver has signed
-    try { data = await api("/api/driver/trips");
+    if (current() !== "stop") return clearInterval(qrPoll);
+    try { keep(await api("/api/driver/trips"));
           curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
           const now = curTrip.stops.find(x => x.order_id === s.order_id);
-          if (now && now.done) { clearInterval(qrPoll); toast("The receiver signed. Thank you!"); showTrip(curTrip.trip_id); } } catch (e) {}
+          if (now && now.done) { clearInterval(qrPoll); haptic([60, 40, 60]); toast("The receiver signed. Thank you!"); showTrip(curTrip.trip_id); } } catch (e) {}
   }, 5000);
 }
 async function readyToAsk(b) {
-  const s = curStop;
   $("stopErr").classList.add("hidden");
   b.disabled = true;
   try {
-    if (!s.arrived) { await stopAction("arrived", {}, true); curStop.arrived = true; }   // they can sign once you've arrived
+    if (!curStop.arrived) { await stopAction("arrived", {}, true); curStop.arrived = true; paintStopHead(); }   // they can sign once you've arrived
     return true;
   } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); return false; }
   finally { b.disabled = false; }
 }
-function intlPhone(p) {
-  let d = String(p || "").replace(/\D/g, "");
-  if (d.startsWith("0")) d = "27" + d.slice(1);                     // South African numbers
-  return d;
-}
-const askText = s => `Hello ${s.client || ""}, your driver is at your door with order ${s.order_id}. Please check the ` +
+const askText = s => `Hello ${s.client || ""}, your driver from ${COMPANY} is at your door with order ${s.order_id}. Please check the ` +
                      `goods and sign for them here: ${signLink(s)}`;
 $("askWa").onclick = async () => {
   if (!await readyToAsk($("askWa"))) return;
@@ -478,29 +939,40 @@ $("qrBtn").onclick = async () => {
   try {
     await new Promise((ok, bad) => { if (window.qrcode) return ok();
       const js = document.createElement("script"); js.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
+      js.integrity = "sha384-lQXOAyZwHXE55JFyrOMB7nY2Wv+m5ZWNtJcHrd1rceRQXAYNLak8ukN5TjBTcIwz"; js.crossOrigin = "anonymous";
       js.onload = ok; js.onerror = () => bad(new Error("No internet for the QR code.")); document.head.appendChild(js); });
     const q = qrcode(0, "M"); q.addData(signLink(s)); q.make();
     $("qr").innerHTML = q.createSvgTag({cellSize: 6, margin: 2});
-    $("qrBox").classList.remove("hidden");
+    $("qrBox").classList.remove("hidden"); $("qrBox").scrollIntoView({block: "center"});
     waitForSignature(s);
   } catch (e) { $("stopErr").textContent = e.message; $("stopErr").classList.remove("hidden"); }
 };
-function paintCond() {
-  $("cond").innerHTML = CONDS.map(c => `<button type="button" class="${c === cond ? "on" : ""}" onclick="setCond('${c}')">${c}</button>`).join("");
-  $("issueBox").classList.toggle("hidden", !["Short", "Damaged"].includes(cond));
-}
-function setCond(c) { cond = c; paintCond(); }
 
-// signature pad
-const sig = $("sig"), sctx = sig.getContext("2d"); let drawing = false, inked = 0;
-function sizeSig() { const r = sig.getBoundingClientRect(); sig.width = Math.round(r.width); sig.height = Math.round(r.height) || 170; clearSig(); }
-function clearSig() { sctx.fillStyle = "#fff"; sctx.fillRect(0, 0, sig.width, sig.height); sctx.strokeStyle = "#0F172A"; sctx.lineWidth = 2.5; sctx.lineCap = "round"; inked = 0; }
-function pt(e) { const r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
-sig.addEventListener("pointerdown", e => { drawing = true; sig.setPointerCapture(e.pointerId); const [x, y] = pt(e); sctx.beginPath(); sctx.moveTo(x, y); });
-sig.addEventListener("pointermove", e => { if (!drawing) return; const [x, y] = pt(e); sctx.lineTo(x, y); sctx.stroke(); inked++; });
-sig.addEventListener("pointerup", () => drawing = false);
+// signature pad (sharp on every screen)
+const sig = $("sig"), sctx = sig.getContext("2d"); let drawing = false, inked = 0, last = null;
+function sizeSig() {
+  const r = sig.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  sig.width = Math.round(r.width * dpr); sig.height = Math.round((r.height || 170) * dpr);
+  sctx.setTransform(dpr, 0, 0, dpr, 0, 0); clearSig();
+}
+function clearSig() { sctx.save(); sctx.setTransform(1, 0, 0, 1, 0, 0); sctx.fillStyle = "#fff"; sctx.fillRect(0, 0, sig.width, sig.height); sctx.restore();
+                      sctx.strokeStyle = "#0F172A"; sctx.lineWidth = 2.6; sctx.lineCap = "round"; sctx.lineJoin = "round"; inked = 0; }
+function spot(e) { const r = sig.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+sig.addEventListener("pointerdown", e => { drawing = true; try { sig.setPointerCapture(e.pointerId); } catch (x) {} last = spot(e); });
+sig.addEventListener("pointermove", e => {
+  if (!drawing) return; const p = spot(e);
+  sctx.beginPath(); sctx.moveTo(last[0], last[1]); sctx.quadraticCurveTo(last[0], last[1], (last[0] + p[0]) / 2, (last[1] + p[1]) / 2);
+  sctx.lineTo(p[0], p[1]); sctx.stroke(); last = p; inked++;
+});
+["pointerup", "pointercancel", "pointerleave"].forEach(ev => sig.addEventListener(ev, () => drawing = false));
 $("sigClear").onclick = clearSig;
-window.addEventListener("resize", () => { if (!$("sign").classList.contains("hidden") && !inked) sizeSig(); });
+addEventListener("resize", () => { if (current() === "sign" && !inked) sizeSig(); });
+function signatureData() {
+  // a small black-and-white copy, so it saves quickly even with a weak signal
+  const w = Math.min(600, sig.width), h = Math.round(sig.height * w / sig.width), c = document.createElement("canvas");
+  c.width = w; c.height = h; const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.drawImage(sig, 0, 0, w, h);
+  return c.toDataURL("image/png");
+}
 
 $("photo").onchange = e => {
   const f = e.target.files[0]; if (!f) return;
@@ -509,52 +981,72 @@ $("photo").onchange = e => {
     const scale = Math.min(1, 1280 / Math.max(img.width, img.height));
     const c = document.createElement("canvas"); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
     c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-    photo = c.toDataURL("image/jpeg", 0.8); $("photoPrev").src = photo; $("photoPrev").classList.remove("hidden");
+    photo = c.toDataURL("image/jpeg", 0.75); $("photoPrev").src = photo; $("photoPrev").classList.remove("hidden");
     URL.revokeObjectURL(img.src);
   };
   img.src = URL.createObjectURL(f);
 };
 
 async function stopAction(action, extra, quiet) {
-  const signing = !$("sign").classList.contains("hidden"), err = signing ? $("signErr") : $("stopErr");
+  const signing = current() === "sign", err = signing ? $("signErr") : $("stopErr");
   err.classList.add("hidden");
-  const btns = [$("arrived"), $("deliver"), $("failed"), $("otherDone")];
+  const btns = [$("arrived"), $("deliver"), $("failed"), $("otherDone"), $("toSign")];
   btns.forEach(b => b.disabled = true);
   const btn = signing ? $("deliver") : {arrived: $("arrived"), failed: $("failed")}[action] || $("otherDone");
+  const label = btn.textContent;
   try {
     const loc = await where(true, btn);                     // the phone's GPS, read automatically
     btn.textContent = "Saving…";
-    data = await api("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, loc));
+    const d = await send("/api/driver/stop", Object.assign({trip_id: curTrip.trip_id, order_id: curStop.order_id, action}, extra || {}, loc));
     curTrip = data.trips.find(t => t.trip_id === curTrip.trip_id) || curTrip;
-    if (quiet) { curStop = curTrip.stops.find(x => x.order_id === curStop.order_id) || curStop; return; }
-    toast(action === "arrived" ? "Noted: the customer sees you've arrived" : action === "failed" ? "Saved: the office can see why" : (curStop.kind && curStop.kind !== "Delivery" ? "Done. Thank you!" : "Signed and delivered. Thank you!"));
-    if (action === "arrived") showStop(curStop.order_id); else showTrip(curTrip.trip_id);
+    curStop = curTrip.stops.find(x => x.order_id === curStop.order_id) || curStop;
+    if (action === "arrived") curStop.arrived = true;
+    if (quiet) return;
+    haptic(action === "failed" ? 80 : [40, 30, 40]);
+    toast(d === null ? "Saved on the phone: it goes to the office as soon as there's signal"
+          : action === "arrived" ? "Noted: the customer sees you've arrived" : action === "failed" ? "Saved: the office can see why"
+          : (curStop.kind && curStop.kind !== "Delivery" ? "Done. Thank you!" : "Signed and delivered. Thank you!"));
+    if (action === "arrived") { paintStopHead(); $("podCard").scrollIntoView({block: "start", behavior: "smooth"}); }
+    else afterStop();
   } catch (e) {
     if (quiet) throw e;
-    if (signing && blocked()) { view("stop"); paintGps(); toast("Switch on location, then let the receiver sign again"); return; }
+    if (signing && blocked()) { view("stop"); paintGps(); toast("Switch on location, then let the receiver sign again", "err"); return; }
     err.textContent = e.message; err.classList.remove("hidden"); err.scrollIntoView({block: "center"}); paintGps();
   } finally {
     btns.forEach(b => b.disabled = false);
-    $("arrived").textContent = "I've arrived"; $("failed").textContent = curStop && curStop.kind && curStop.kind !== "Delivery" ? "Couldn't do it" : "Delivery failed";
-    $("deliver").textContent = cond === "Rejected" ? "Sign to refuse" : "Sign & confirm";
-    $("otherDone").textContent = curStop && curStop.kind === "Collection" ? "Collected" : "Done";
+    if (btn.textContent === "Saving…" || btn.textContent.startsWith("Getting") || btn.textContent.startsWith("Finding")) btn.textContent = label;
   }
 }
+function afterStop() { showTrip(curTrip.trip_id); window.scrollTo(0, 0); }   // the trip, with the next stop on top
 $("locRetry").onclick = () => { restartGps(); toast("Checking the location…"); };
 $("arrived").onclick = () => stopAction("arrived");
 $("deliver").onclick = () => {
   if (cond !== "Rejected" && inked <= 5) { $("signErr").textContent = "Please sign in the box with your finger."; $("signErr").classList.remove("hidden"); return; }
   if ($("rb").value.trim().length < 2) { $("signErr").textContent = "Please type your full name."; $("signErr").classList.remove("hidden"); return; }
   stopAction("delivered", {received_by: $("rb").value, condition: cond, issues: issuesNow(), note: $("note").value,
-                           signature: inked > 5 ? sig.toDataURL("image/png") : "", photo});
+                           signature: inked > 5 ? signatureData() : "", photo});
 };
-$("failed").onclick = () => stopAction("failed", {note: $("why").value});
+$("failed").onclick = () => {
+  if (!$("why").value.trim()) { $("stopErr").textContent = "Choose or type why it couldn't be done."; $("stopErr").classList.remove("hidden");
+    $("failBox").open = true; $("why").focus(); return; }
+  stopAction("failed", {note: $("why").value});
+};
 $("otherDone").onclick = () => stopAction("delivered", {note: $("onote").value});
 
-if (token) load().then(() => {           // a link like /driver#TRIP-1 or #TRIP-1/111 opens that trip or stop
-  const h = decodeURIComponent(location.hash.slice(1)).split("/");
-  if (h[0] && data) { showTrip(h[0]); if (h[1]) showStop(h[1]); }
-}); else view("login");
+// =====================================================================================================================
+// start
+// =====================================================================================================================
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/driver_sw.js", {scope: "/driver"}).catch(() => {});
+if (token) {
+  const c = store.get(K.data, null);
+  if (c && c.data) { data = c.data; savedAt = c.at; outbox.forEach(applyLocally); route(); }       // instantly, from the phone
+  else { view("trips"); setTitle("Loading your trips…"); $("tripList").innerHTML = `<div class="card"><div class="skel"></div><div class="skel" style="width:60%"></div><div class="skel" style="width:80%"></div></div>`; }
+  load(!!c, !c).then(() => {           // a link like /driver#TRIP-1 or #TRIP-1/111 opens that trip or stop
+    const h = decodeURIComponent(location.hash.slice(1)).split("/");
+    if (h[0] && data && data.trips.some(t => t.trip_id === h[0])) { showTrip(h[0]); if (h[1]) showStop(h[1]); }
+    if (outbox.length) flush();
+  });
+} else view("login");
 </script>
 </body>
 </html>

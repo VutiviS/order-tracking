@@ -41,6 +41,33 @@ for _name, _value in (("SUPABASE_URL", DEFAULT_SUPABASE_URL), ("SUPABASE_KEY", D
 if hasattr(time, "tzset"):
     time.tzset()
 
+# The private access key (INVENTRA_ACCESS_KEY, set on the host, never in this code): sent with every database request
+# (the locked database answers nothing without it) and used to sign links and sign-ins. Without it the public
+# database key is used, as before.
+ACCESS_KEY = (os.environ.get("INVENTRA_ACCESS_KEY") or "").strip()
+
+
+# what browsers may do with these pages: only our own scripts plus the pinned map / QR / scanner libraries, no
+# framing by other sites, location and camera only for this site, always HTTPS
+CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; "
+       "img-src 'self' data: blob: https:; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; "
+       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'")
+SECURITY_HEADERS = [("X-Content-Type-Options", "nosniff"), ("Referrer-Policy", "no-referrer"),
+                    ("Strict-Transport-Security", "max-age=31536000; includeSubDomains"),
+                    ("Permissions-Policy", "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()"),
+                    ("Cross-Origin-Opener-Policy", "same-origin")]
+
+
+def signing_key() -> str:
+    return ACCESS_KEY or os.environ.get("SUPABASE_KEY", "")
+
+
+def db_options():
+    from supabase import ClientOptions
+    return ClientOptions(headers={"x-inventra-key": ACCESS_KEY} if ACCESS_KEY else {})
+
+
 import tracking_domain as TD  # noqa: E402
 from warehouse import Warehouse, WarehouseError  # noqa: E402
 from supplier import SupplierError, SupplierPortal  # noqa: E402
@@ -70,8 +97,10 @@ class Tracker:
         if not os.environ.get("SUPABASE_URL") or not os.environ.get("SUPABASE_KEY"):
             raise RuntimeError("SUPABASE_URL and/or SUPABASE_KEY are not set on the server")
         from supabase import create_client
-        self.db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
-        self.secret = os.environ["SUPABASE_KEY"]
+        self.db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"], options=db_options())
+        self.secret = signing_key()
+        # links printed before the access key existed: still open the tracking page (read only)
+        self.legacy_secret = os.environ["SUPABASE_KEY"] if ACCESS_KEY else None
         self.cache = {}
         self.failures = {}
         self.lock = threading.Lock()
@@ -133,9 +162,11 @@ class Tracker:
 
     def from_link(self, key: str) -> dict:
         oid, code = TD.split_link_key(key)
-        if not oid or not TD.code_ok(self.secret, oid, code):
-            raise TrackError("This tracking link isn't valid. Type your order number and phone number instead.", 404)
-        return self.view(oid)
+        old = getattr(self, "legacy_secret", None)
+        legacy = bool(old) and bool(oid) and TD.code_ok(old, oid, code)
+        if not oid or not (TD.code_ok(self.secret, oid, code) or legacy):
+            raise TrackError("This tracking link isn't valid. Type your order number instead.", 404)
+        return self.view(oid)           # an old link opens the page; it carries the new link for signing
 
     def _limit(self, ip: str):
         with self.lock:
@@ -147,6 +178,10 @@ class Tracker:
     def _failed(self, ip: str):
         with self.lock:
             self.failures.setdefault(ip, []).append(time.time())
+            if len(self.failures) > 5000:              # forget old entries so the list can't be flooded
+                cut = time.time() - LOOKUP_WINDOW
+                for k in [k for k, v in self.failures.items() if not v or v[-1] < cut]:
+                    self.failures.pop(k, None)
 
     def lookup(self, body: dict, ip: str) -> dict:
         """The order number is enough (wrong numbers count towards a pause, so numbers can't be guessed in bulk)."""
@@ -208,7 +243,7 @@ PROOF_BUCKET = "delivery-proofs"
 
 
 def _driver_secret() -> bytes:
-    return hashlib.sha256(("inventra-driver:" + os.environ.get("SUPABASE_KEY", "")).encode()).digest()
+    return hashlib.sha256(("inventra-driver:" + signing_key()).encode()).digest()
 
 
 def driver_token(driver: dict) -> str:
@@ -216,6 +251,21 @@ def driver_token(driver: dict) -> str:
                "h": hashlib.sha256(str(driver.get("pin_hash") or "").encode()).hexdigest()[:12]}
     raw = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
     return raw + "." + hmac.new(_driver_secret(), raw.encode(), hashlib.sha256).hexdigest()[:40]
+
+
+def tapped_at(body: dict, now: datetime) -> datetime:
+    """When the driver tapped the button. A step saved on the phone while it had no signal is sent later with how long
+    ago it was tapped ("ago", seconds; the phone's own clock may be wrong, so its time isn't used); up to 24 hours."""
+    try:
+        ago = float(body.get("ago") or 0)
+    except (TypeError, ValueError):
+        ago = 0
+    return (now - timedelta(seconds=ago)).replace(microsecond=0) if 0 < ago <= 86400 else now
+
+
+def op_of(body: dict) -> str:
+    """The phone's id for one tap: the same step sent twice (no answer the first time) is saved once."""
+    return str(body.get("op") or "")[:40]
 
 
 class Drivers:
@@ -240,25 +290,78 @@ class Drivers:
     def driver_login(self, body: dict, ip: str) -> dict:
         self._limit("driver:" + ip)
         name = " ".join(str(body.get("name") or "").split()).lower()
+        self._limit("driver-account:" + name)          # guesses spread over many addresses still stop
         pin = str(body.get("pin") or "")
         rows = [d for d in self.db.table("fleet_drivers").select("*").execute().data or []
                 if " ".join(str(d.get("name") or "").split()).lower() == name and d.get("active") is not False]
         d = next((d for d in rows if d.get("pin_hash") and TD.pin_ok(d["pin_hash"], pin)), None)
         if not d:
             self._failed("driver:" + ip)
+            self._failed("driver-account:" + name)
             self.activity(name or "?", "Driver sign-in failed", f"Name typed: {body.get('name') or ''}",
                           kind="sign_in_failed")
             raise TrackError("Name or PIN not right. Ask the office to set your PIN.", 403)
         self.activity(d.get("name") or name, "Driver signed in on the phone", kind="sign_in")
         return {"token": driver_token(d), "name": d.get("name")}
 
-    def driver_trips(self, body: dict) -> dict:
-        d = self._driver(body.get("token"))
+    def _rows_in(self, table, column, values) -> list:
+        """Every row whose column is one of values, in as few requests as possible (missing table: none)."""
+        out = []
+        values = list(values)
+        try:
+            for i in range(0, len(values), 150):
+                out += self.db.table(table).select("*").in_(column, values[i:i + 150]).execute().data or []
+        except Exception as e:
+            text = str(e)
+            if "PGRST205" in text or "does not exist" in text or "404" in text:
+                return []
+            raise
+        return out
+
+    def _orders_for_driver(self, trips: list) -> dict:
+        """order id -> (order, despatch, track, shipments, customer) for every order on the trips: 5 requests in all,
+        however many stops (one order at a time took 10 requests a stop, 40 seconds for a day's trips)."""
+        oids = sorted({str(o) for t in trips for o in t.get("orders") or [] if str(o).isdigit()})
+        if not oids:
+            return {}
+        keys = [int(o) for o in oids]
+        lines, desp = {}, {}
+        for r in self._rows_in("customer_order", "order_id", keys):
+            lines.setdefault(str(r.get("order_id")), []).append(r)
+        for r in self._rows_in("despatching", "order_id", keys):
+            desp.setdefault(str(r.get("order_id")), []).append(r)
+        tracks = {str(r.get("order_id")): r for r in self._rows_in(TD.TABLE, "order_id", oids)}
+        try:
+            ships_all = self.db.table("cross_border_shipments").select("*").execute().data or []
+        except Exception:
+            ships_all = []
+        try:
+            custs = self.db.table("customers").select("company_name,physical_address,phone_number").execute().data or []
+        except Exception:
+            custs = []
+        by_name = {}
+        for c in custs:
+            by_name.setdefault(str(c.get("company_name") or "").strip(), c)
+            by_name.setdefault(str(c.get("company_name") or "").strip().lower(), c)
+        out = {}
+        for oid in oids:
+            order = TD.group_order(lines.get(oid, []))
+            if not order:
+                continue
+            ships = [s for s in ships_all
+                     if oid in [w.strip() for w in str(s.get("reference") or "").replace(",", " ").split()]]
+            name = str(order.get("client_name") or "").strip()
+            out[oid] = (order, desp.get(oid, []), tracks.get(oid), ships, by_name.get(name) or by_name.get(name.lower()) or {})
+        return out
+
+    def driver_trips(self, body: dict, d: dict = None) -> dict:
+        d = d or self._driver(body.get("token"))
         recent = (datetime.now().date() - timedelta(days=1)).isoformat()
         trips = [t for t in self.db.table("delivery_trips").select("*").eq("driver", d.get("name")).execute().data or []
                  if t.get("status") not in ("Completed", "Cancelled") or str(t.get("trip_date"))[:10] >= recent
                  or str(t.get("updated_at") or "")[:10] >= recent]
         trips.sort(key=lambda t: (str(t.get("trip_date")), str(t.get("trip_id"))))
+        orders = self._orders_for_driver(trips)
         out = []
         for t in trips:
             stops = []
@@ -276,11 +379,9 @@ class Drivers:
                                   "done": bool(p.get("done")), "failed": bool(p.get("failed")), "items": [],
                                   "lat": p.get("lat"), "lng": p.get("lng")})
                     continue
-                try:
-                    order, despatch, track, ships, _trip = self.order(oid, fresh=True)
-                except TrackError:
+                if oid not in orders:
                     continue
-                cust = (self._rows("customers", "company_name", order.get("client_name") or "") or [{}])[0]
+                order, despatch, track, ships, cust = orders[oid]
                 v = TD.view(order, despatch, track, ships)
                 stops.append({"order_id": oid, "client": order.get("client_name"), "address": cust.get("physical_address") or "",
                               "phone": cust.get("phone_number") or "", "stage": v["stage"], "stage_label": v["stage_label"],
@@ -299,9 +400,11 @@ class Drivers:
             plan = {str(x.get("order_id")): x.get("eta") for x in t.get("plan") or []}
             for st in stops:
                 st["eta"] = plan.get(st["order_id"], "")
+            left = next((e.get("at") for e in reversed(t.get("events") or []) if e.get("kind") == "departed"), None)
             out.append({"trip_id": t["trip_id"], "date": str(t.get("trip_date"))[:10], "vehicle": t.get("vehicle") or "",
-                        "status": t.get("status"), "start_km": t.get("start_km"), "stops": stops})
-        return {"name": d.get("name"), "trips": out}
+                        "status": t.get("status"), "start_km": t.get("start_km"), "left_at": left, "stops": stops})
+        return {"name": d.get("name"), "trips": out, "today": datetime.now().date().isoformat(),
+                "server_time": datetime.now().replace(microsecond=0).isoformat()}
 
     def _trip(self, d: dict, trip_id: str) -> dict:
         rows = self.db.table("delivery_trips").select("*").eq("trip_id", trip_id).execute().data or []
@@ -322,11 +425,14 @@ class Drivers:
         nxt = {"loaded": ("Planned", "Loaded"), "departed": ("Loaded", "Departed"), "completed": ("Departed", "Completed")}
         if action not in nxt:
             raise TrackError("Unknown step.")
+        op = op_of(body)
+        if op and any(e.get("op") == op for e in t.get("events") or []):
+            return self.driver_trips(body, d)                      # already saved (sent again after no answer)
         if t.get("status") not in (nxt[action][0], nxt[action][1]):
             raise TrackError(f"The trip is {str(t.get('status')).lower()}: that step doesn't fit.", 409)
-        now = datetime.now().replace(microsecond=0)
+        now = tapped_at(body, datetime.now().replace(microsecond=0))
         ev = list(t.get("events") or []) + [{"kind": action, "at": now.isoformat(), "by": d.get("name"),
-                                             "lat": body.get("lat"), "lng": body.get("lng")}]
+                                             "lat": body.get("lat"), "lng": body.get("lng"), **({"op": op} if op else {})}]
         change = {"status": nxt[action][1], "events": ev, "updated_at": now.isoformat()}
         km = TD.num(body.get("km"))
         if km and action == "loaded":
@@ -346,7 +452,7 @@ class Drivers:
                 row = TD.add_event(track, action, note, by=d.get("name"), when=now)
                 row["trip_id"] = t["trip_id"]
                 self._save_track(str(oid), row)
-        return self.driver_trips(body)
+        return self.driver_trips(body, d)
 
     def driver_position(self, body: dict) -> dict:
         """The driver's phone reports where the vehicle is while the trip is out (Departed)."""
@@ -399,14 +505,20 @@ class Drivers:
         action = body.get("action")
         if action not in ("arrived", "failed", "delivered"):
             raise TrackError("Unknown step.")
-        now = datetime.now().replace(microsecond=0)
+        now = tapped_at(body, datetime.now().replace(microsecond=0))
+        op = op_of(body)
         note = str(body.get("note") or "").strip()[:300]
         if action == "failed" and not note:
             raise TrackError("Say why it couldn't be done (the customer sees it).")
-        loc = self.located(body, t, oid)               # the phone's GPS, read automatically: required for every step
         if not oid.isdigit():
-            return self._other_stop(d, t, oid, action, note, now, loc)
+            p = next((x for x in t.get("plan") or [] if str(x.get("order_id")) == oid), {})
+            if op and op in (p.get("ops") or []):
+                return self.driver_trips(body, d)
+            return self._other_stop(d, t, oid, action, note, now, self.located(body, t, oid), op)
         track = (self._rows(TD.TABLE, "order_id", oid) or [None])[0]
+        if op and any(e.get("op") == op for e in (track or {}).get("events") or []):
+            return self.driver_trips(body, d)                      # already saved (sent again after no answer)
+        loc = self.located(body, t, oid)               # the phone's GPS, read automatically: required for every step
         where = {"lat": loc.get("lat"), "lng": loc.get("lng")}
         if action == "arrived":
             row = TD.add_event(track, "arrived", "", by=d.get("name"), when=now)
@@ -442,13 +554,14 @@ class Drivers:
                 title = f"Delivered order {oid}, signed by {name}"
             row["pod"] = pod
         row["events"][-1].update(lat=loc.get("lat"), lng=loc.get("lng"), loc=loc.get("status"),
-                                 distance_m=loc.get("distance_m"))
+                                 distance_m=loc.get("distance_m"), **({"op": op} if op else {}))
         row["trip_id"] = t["trip_id"]
         self._save_track(oid, row)
         self.activity(d.get("name") or "driver", title, TD.location_text(loc), loc)
-        return self.driver_trips(body)
+        return self.driver_trips(body, d)
 
-    def _other_stop(self, d: dict, t: dict, oid: str, action: str, note: str, now: datetime, loc=None) -> dict:
+    def _other_stop(self, d: dict, t: dict, oid: str, action: str, note: str, now: datetime, loc=None,
+                    op: str = "") -> dict:
         """A collection (returned goods) or a stop added by hand: its progress is kept on the trip's plan; a collected
         return moves on to Collected in Returns."""
         if action not in ("arrived", "failed", "delivered"):
@@ -463,6 +576,8 @@ class Drivers:
         p.update({"arrived": now.isoformat()} if action == "arrived" else
                  {"failed": action == "failed", "done": action == "delivered", "at": now.isoformat(), "note": note,
                   "by": d.get("name")})
+        if op:
+            p["ops"] = (list(p.get("ops") or []) + [op])[-10:]
         if loc:
             p["location" if action != "arrived" else "arrived_location"] = loc
             verb = {"arrived": "Arrived at", "failed": "Could not do", "delivered": "Done:"}[action]
@@ -479,13 +594,13 @@ class Drivers:
                                                              "updated_at": now.isoformat()}).eq("rma_id", oid).execute()
             except Exception as e:
                 log.warning("return %s not updated: %s", oid, str(e)[:200])
-        return self.driver_trips({"token": driver_token(d)})
+        return self.driver_trips({}, d)
 
 
 STATIC = {"/manifest.json": "application/manifest+json", "/icon-192.png": "image/png", "/icon-512.png": "image/png",
           "/apple-touch-icon.png": "image/png", "/logo.png": "image/png", "/logo.svg": "image/svg+xml",
           "/logo-light.svg": "image/svg+xml", "/logo-full.svg": "image/svg+xml", "/logo-full-light.svg": "image/svg+xml",
-          "/favicon.svg": "image/svg+xml"}
+          "/favicon.svg": "image/svg+xml", "/driver_sw.js": "text/javascript; charset=utf-8"}
 
 
 def company() -> dict:
@@ -521,12 +636,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store" if ctype.startswith(("application/json", "text/html"))
+        self.send_header("Cache-Control", "no-store" if ctype.startswith(("application/json", "text/html", "text/javascript"))
                          else "public, max-age=86400")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
         if ctype.startswith("text/html"):
             self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Content-Security-Policy", CSP)
         self.end_headers()
         self.wfile.write(data)
 
@@ -537,7 +653,14 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
 
     def _ip(self):
-        return (self.headers.get("X-Forwarded-For") or self.client_address[0]).split(",")[0].strip()
+        """The visitor's real address for the try limits. The first X-Forwarded-For entry is whatever the visitor
+        typed (so it can't be trusted); the host's own proxy puts the real one in CF-Connecting-IP / True-Client-IP
+        or adds it as the LAST entry."""
+        for h in ("CF-Connecting-IP", "True-Client-IP"):
+            if (self.headers.get(h) or "").strip():
+                return self.headers[h].strip()
+        xff = [p.strip() for p in (self.headers.get("X-Forwarded-For") or "").split(",") if p.strip()]
+        return xff[-1] if xff else self.client_address[0]
 
     def _fail(self, e):
         if isinstance(e, (TrackError, WarehouseError, SupplierError, QuoteError, GpsError, ProofError)):
@@ -548,9 +671,13 @@ class Handler(BaseHTTPRequestHandler):
     def _gps(self, params):
         if not self.ensure():
             return self._send(503, {"error": "Not ready"})
+        ip = self._ip()
         try:
+            self.tracker._limit("gps:" + ip)                 # unknown tracker ids can't be guessed in bulk
             return self._send(200, self.tracker.gps(params))
         except Exception as e:
+            if getattr(e, "status", 0) == 404:
+                self.tracker._failed("gps:" + ip)
             return self._fail(e)
 
     def do_GET(self):
@@ -599,7 +726,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/track":
             key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
             if not self.ensure():
-                return self._send(503, {"error": "Tracking is being set up. Please try again later.", "detail": self.startup_error})
+                return self._send(503, {"error": "Tracking is being set up. Please try again later."})
             try:
                 return self._send(200, self.tracker.from_link(key))
             except Exception as e:
@@ -620,9 +747,14 @@ class Handler(BaseHTTPRequestHandler):
                     files = web_files.fingerprints(HERE)
                 except Exception:
                     files = None
+                try:                        # does the (locked) database accept this site? (Settings > Security)
+                    access_ok = bool(t.db.rpc("inventra_access").execute().data)
+                except Exception:
+                    access_ok = None        # the security update hasn't been run yet
                 return self._send(200, {"ok": True, "db": "ok", "tracking_table": tracking,
                                         "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                        "version": self.server_version, "files": files})
+                                        "version": self.server_version, "files": files,
+                                        "access_key": bool(ACCESS_KEY), "access_ok": access_ok})
             except Exception as e:
                 return self._send(503, {"ok": False, "stage": "database", "error": str(e)[:200]})
         return self._send(404, {"error": "Not found"})
@@ -652,7 +784,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             return self._send(400, {"error": "Bad request"})
         if not self.ensure():
-            return self._send(503, {"error": "Tracking is being set up. Please try again later.", "detail": self.startup_error})
+            return self._send(503, {"error": "Tracking is being set up. Please try again later."})
         path = self.path.split("?", 1)[0]
         try:
             if path == "/api/lookup":

@@ -43,7 +43,8 @@ class WarehouseError(Exception):
 
 
 def _secret() -> bytes:
-    return hashlib.sha256(("inventra-warehouse:" + os.environ.get("SUPABASE_KEY", "")).encode()).digest()
+    key = (os.environ.get("INVENTRA_ACCESS_KEY") or "").strip() or os.environ.get("SUPABASE_KEY", "")
+    return hashlib.sha256(("inventra-warehouse:" + key).encode()).digest()
 
 
 def _sign(payload: dict) -> str:
@@ -73,11 +74,13 @@ class Warehouse:
     def wh_login(self, body: dict, ip: str) -> dict:
         self._limit("wh:" + ip)
         name = str(body.get("username") or "").strip().lower()
+        self._limit("wh-account:" + name)              # guesses spread over many addresses still stop
         rows = [u for u in self.db.table("app_users").select("*").execute().data or []
                 if str(u.get("username") or "").lower() == name and u.get("active") is not False]
         u = rows[0] if rows else None
         if not u or not TD.pin_ok(u.get("password_hash") or "", str(body.get("password") or "")):
             self._failed("wh:" + ip)
+            self._failed("wh-account:" + name)
             raise WarehouseError("Username or password not right (the same as for INVENTRA).", 403)
         can = sorted(k for k, roles in ROLE_CAN.items() if set(_roles(u)) & roles)
         if not can:
