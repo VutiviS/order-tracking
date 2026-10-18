@@ -80,6 +80,13 @@
     #sign canvas.sig { height:min(60vh, 460px); }
     #trips .list { display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:12px; }
     #trips .list > .card { margin:0; }
+    /* no map (the stops have no map position): two even columns, centred, instead of a narrow strip */
+    #trip.nomap .grid, #stop.nomap .grid { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); max-width:1180px; margin:0 auto;
+                                           grid-template-rows:auto auto auto auto 1fr; }
+    #trip.nomap .grid { grid-template-areas:"head stops" "hero stops" "smart stops" "step stops" ". stops"; }
+    #stop.nomap .grid { grid-template-areas:"loc loc" "head pod" "other pod" "fail pod" ". pod"; }
+    #trip.nomap .dock, #stop.nomap .dock { width:min(584px, calc(50% - 6px)); margin-left:max(0px, calc((100% - 1180px) / 2)); }
+    .card { padding:20px; }
   }
   @media (max-width:360px) { main { padding:8px 8px 0; } .card { padding:13px; } body { font-size:14px; } }
 
@@ -123,18 +130,53 @@
   .hero { background:var(--navy); color:#fff; border-color:var(--navy); }
   .hero.near { background:var(--green2); border-color:var(--green2); }
   .hero .k { font-size:12px; letter-spacing:.12em; text-transform:uppercase; opacity:.85; font-weight:700; }
-  .hero h2 { font-size:22px; margin:6px 0 2px; } .hero .addr { opacity:.9; font-size:14px; }
-  .hero .far { display:flex; gap:14px; margin-top:10px; flex-wrap:wrap; font-size:14px; } .hero .far b { font-size:20px; }
+  .hero h2 { font-size:26px; margin:6px 0 4px; letter-spacing:-.01em; }
+  .hero .addr { opacity:.92; font-size:14.5px; display:flex; gap:6px; align-items:flex-start; }
+  .hero .addr svg { width:16px; height:16px; flex:none; margin-top:2px; }
+  .hero .far { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; margin-top:14px; }
+  @media (max-width:440px) { .row3 .btn svg { display:none; } .journey .js { font-size:11px; } }
+  .hero .far > span { background:rgba(255,255,255,.1); padding:8px 10px; font-size:12px; opacity:.95; }
+  .hero .far b { display:block; font-size:20px; line-height:1.2; }
+  .hero .btn.main { margin-top:14px; }
   .hero .btn { background:#fff; color:var(--navy); } .hero.near .btn { color:var(--green2); }
   .hero .btn.ghost { background:transparent; color:#fff; border-color:rgba(255,255,255,.45); }
   .smart { border-left:4px solid var(--amber); }
-  .stop { display:flex; gap:12px; align-items:center; padding:12px 0; border-top:1px solid var(--line); cursor:pointer; }
-  .stop:first-child { border-top:0; } .stop:active { background:var(--soft); }
-  .num { width:34px; height:34px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--soft); font-weight:800; }
-  .stop.done .num { background:var(--green); color:#fff; } .stop.bad .num { background:var(--red); color:#fff; }
-  .stop.next .num { background:var(--navy); color:#fff; } .stop.next { box-shadow:inset 3px 0 0 var(--navy); padding-left:8px; }
-  .stop .who { font-weight:700; } .stop .where { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
-  .stop .mid { flex:1; min-width:0; } .stop .right { text-align:right; font-size:12.5px; color:var(--muted); flex:none; }
+  /* the trip at a glance: one block per stop, then where the driver is in the day */
+  .headrow { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+  .k2 { font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); min-width:0;
+        overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bigline b { font-size:30px; letter-spacing:-.01em; }
+  .segbar { display:flex; gap:3px; height:10px; margin-top:12px; } .segbar i { flex:1; background:var(--soft); }
+  .segbar i.ok { background:var(--green); } .segbar i.bad { background:var(--red); } .segbar i.nx { background:var(--navy2); }
+  .journey { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); margin:18px 0 0; }
+  .journey .js { position:relative; text-align:center; font-size:12px; font-weight:600; color:var(--muted); padding:32px 2px 0;
+                 line-height:1.25; }
+  .journey .js::before { content:""; position:absolute; top:11px; left:-50%; right:50%; height:3px; background:var(--line); }
+  .journey .js:first-child::before { display:none; }
+  .journey .js i { position:absolute; top:0; left:50%; transform:translateX(-50%); width:24px; height:24px; z-index:1;
+                   background:var(--card); border:2px solid var(--line); display:flex; align-items:center; justify-content:center;
+                   font-style:normal; font-size:12px; font-weight:800; }
+  .journey .js.done, .journey .js.on { color:var(--ink); }
+  .journey .js.done::before, .journey .js.on::before { background:var(--green); }
+  .journey .js.done i { background:var(--green); border-color:var(--green); color:#fff; }
+  .journey .js.on { font-weight:800; }
+  .journey.j3 { grid-template-columns:repeat(3, minmax(0, 1fr)); margin:0 0 16px; }
+  .journey .js.on i { background:var(--navy2); border-color:var(--navy2); color:#fff; box-shadow:0 0 0 4px rgba(37,99,235,.22); }
+  /* the stops: numbered squares joined by a line */
+  .stop { position:relative; display:flex; gap:14px; align-items:flex-start; padding:12px 6px; cursor:pointer; margin:0 -6px; }
+  .stop:active { background:var(--soft); } @media (hover:hover) { .stop:hover { background:var(--soft); } }
+  .num { width:34px; height:34px; flex:none; display:flex; align-items:center; justify-content:center; background:var(--soft);
+         font-weight:800; position:relative; z-index:1; border:2px solid var(--line); }
+  .stop:not(:last-child)::after { content:""; position:absolute; left:22px; top:46px; bottom:-12px; width:2px; background:var(--line); }
+  .stop.done::after { background:var(--green) !important; }
+  .stop.done .num { background:var(--green); border-color:var(--green); color:#fff; }
+  .stop.bad .num { background:var(--red); border-color:var(--red); color:#fff; }
+  .stop.next .num { background:var(--navy2); border-color:var(--navy2); color:#fff; box-shadow:0 0 0 4px rgba(37,99,235,.2); }
+  .stop.next .who { color:var(--navy2); } @media (prefers-color-scheme: dark) { .stop.next .who { color:#7FB0FF; } }
+  .stop .who { font-weight:700; font-size:15.5px; } .stop .where { font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; }
+  .stop .mid { flex:1; min-width:0; padding-top:1px; } .stop .right { text-align:right; font-size:12.5px; color:var(--muted); flex:none; padding-top:4px; }
+  .stop .right > div { margin-top:4px; }
+  .tripcard { border-left:4px solid var(--navy2); } @media (hover:hover) { .tripcard:hover { border-color:var(--navy2); } }
   .mapbox { height:250px; border:1px solid var(--line); background:var(--soft); position:relative; z-index:0; isolation:isolate; }
   .a-map.card { padding:0; } .a-map .mapbox { border:0; }
   .pin { font:800 12px/26px Inter, Arial, sans-serif; color:#fff; text-align:center; width:26px; height:26px; border:2px solid #fff;
@@ -199,8 +241,9 @@
 <main>
   <!-- sign in -->
   <section id="login">
-    <div class="card" style="max-width:460px;margin:6vh auto 0">
-      <h2>Driver sign-in</h2>
+    <div class="card" style="max-width:460px;margin:6vh auto 0;padding:24px">
+      <img src="/favicon.svg" alt="" style="width:48px;height:48px;display:block;margin-bottom:14px" onerror="this.remove()">
+      <h2 style="font-size:24px">Driver sign-in</h2>
       <p class="sub">Your name and the PIN the office gave you. You stay signed in on this phone.</p>
       <label for="name">Your name</label><input id="name" autocomplete="username" autocapitalize="words" enterkeyhint="next">
       <label for="pin">PIN</label>
@@ -219,17 +262,20 @@
   <section id="trip" class="hidden">
     <div class="grid">
       <div class="card a-head">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
-          <span class="pill" id="tripPill"></span><span class="muted" style="font-size:13px" id="tripSub"></span></div>
-        <div class="bigline"><b id="tripDone">0/0</b><span class="muted" id="tripLeft"></span></div>
-        <div class="progress"><i id="tripBar" style="width:0"></i></div>
-        <div class="msg ok hidden" id="sharing" style="margin-top:10px"></div>
+        <div class="headrow">
+          <div class="k2" id="tripSub"></div><span class="pill" id="tripPill"></span></div>
+        <div class="bigline"><b id="tripDone">0 of 0</b><span class="muted" id="tripLeft"></span></div>
+        <div class="segbar" id="tripSegs" aria-hidden="true"></div>
+        <div class="journey" id="journey"></div>
+        <div class="msg ok hidden" id="sharing" style="margin-top:12px"></div>
       </div>
       <div class="card hero a-hero hidden" id="hero"></div>
       <div class="card smart a-smart hidden" id="smart"></div>
       <div class="card a-map"><div id="tmap" class="mapbox"></div></div>
-      <div class="card a-stops"><h3>Stops <span id="stopCount"></span></h3><div id="stops"></div></div>
+      <div class="card a-stops"><h3>Stops <span id="stopCount"></span></h3><div id="stops" class="stops"></div></div>
       <div class="card a-step" id="stepCard">
+        <h3 id="stepTitle">Finish the trip</h3>
+        <p class="sub" id="stepSub"></p>
         <div id="kmBox"><label for="km" id="kmLabel">Odometer (km, optional)</label><input id="km" inputmode="numeric" enterkeyhint="done"></div>
         <button class="btn ghost small hidden" id="tripEnd" type="button">Trip done: back at base</button>
         <div class="msg err hidden" id="tripErr" role="alert"></div>
@@ -256,9 +302,10 @@
         <button class="btn" id="locRetry" type="button">I've switched it on: try again</button>
       </div>
       <div class="card a-head">
-        <div class="steps" id="flow"><span>1 · Arrive</span><span>2 · Hand over</span><span>3 · Signature</span></div>
+        <div class="journey j3" id="flow"><div class="js"><i>1</i>Arrive</div><div class="js"><i>2</i>Hand over</div>
+          <div class="js"><i>3</i>Signature</div></div>
         <span class="pill" id="stopKind"></span>
-        <h2 id="stopTitle" style="margin-top:8px"></h2><p class="sub" id="stopSub"></p>
+        <h2 id="stopTitle" style="margin-top:10px;font-size:24px"></h2><p class="sub" id="stopSub"></p>
         <div class="gps" id="gps" aria-live="polite"><span class="dot"></span><span id="gpsText">Finding your location…</span></div>
         <div class="row3" id="stopLinks"></div>
       </div>
@@ -345,6 +392,10 @@ const CONDS = ["Good", "Short", "Damaged", "Rejected"];
 const WHY = ["Nobody there", "Gate locked", "Wrong address", "Customer refused it", "Customer asked for another day", "Ran out of time"];
 const haptic = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const svg = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICON = {pin: svg('<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>'),
+              nav: svg('<path d="M3 11l18-8-8 18-2-8-8-2z"/>'), phone: svg('<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z"/>'),
+              chat: svg('<path d="M4 5h16v11H9l-5 4z"/>'), open: svg('<path d="M9 6l6 6-6 6"/>'), check: svg('<path d="M5 12l5 5 9-10"/>')};
 
 function current() { return ["login", "trips", "trip", "stop", "sign"].find(v => !$(v).classList.contains("hidden")); }
 function view(id) {
@@ -622,6 +673,7 @@ let tmap = null, tLayer = null, tMe = null, tFitted = "";
 function tripMap() {
   const stops = curTrip.stops.filter(has);
   $("tmap").parentElement.classList.toggle("hidden", !stops.length);
+  $("trip").classList.toggle("nomap", !stops.length);
   if (!stops.length) return;
   loadLeaflet().then(() => {
     if (!tmap) { tmap = L.map("tmap", {zoomControl: true, attributionControl: false}); baseLayers(tmap); }
@@ -645,7 +697,7 @@ function tripMap() {
         all.length > 1 ? tmap.fitBounds(all, {padding: [36, 36], maxZoom: 15}) : tmap.setView(all[0], 15); }
       paintMeOnMap();
     }, 60);
-  }).catch(() => $("tmap").parentElement.classList.add("hidden"));
+  }).catch(() => { $("tmap").parentElement.classList.add("hidden"); $("trip").classList.add("nomap"); });
 }
 function paintMeOnMap() {
   if (!tmap || !gpsFix) return;
@@ -657,6 +709,7 @@ let smap = null, sDest = null, sMe = null, sAcc = null, sZone = null;
 function stopMap() {
   const s = curStop || {};
   $("smapCard").classList.toggle("hidden", !has(s));
+  $("stop").classList.toggle("nomap", !has(s));
   if (!has(s)) return;
   loadLeaflet().then(() => {
     const dest = [+s.lat, +s.lng];
@@ -667,7 +720,7 @@ function stopMap() {
     } else { sZone.setLatLng(dest); sDest.setLatLng(dest); smap.setView(dest, 16); }
     if (sMe) { smap.removeLayer(sMe); smap.removeLayer(sAcc); sMe = sAcc = null; }
     setTimeout(() => { smap.invalidateSize(); paintMe(); }, 60);
-  }).catch(() => $("smapCard").classList.add("hidden"));
+  }).catch(() => { $("smapCard").classList.add("hidden"); $("stop").classList.add("nomap"); });
 }
 function paintMe() {
   if (!smap || !gpsFix || current() !== "stop") return;
@@ -693,12 +746,12 @@ function showTrips() {
   const ts = (data && data.trips) || [];
   $("tripList").innerHTML = ts.length ? ts.map(t => {
     const done = t.stops.filter(s => s.done).length, old = t.date < (data.today || "") && !["Completed", "Cancelled"].includes(t.status);
-    return `<div class="card" onclick="showTrip('${esc(t.trip_id)}')" style="cursor:pointer;margin-bottom:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center"><span class="pill ${t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : ""}">${esc(t.status)}</span>
-      <span class="${old ? "pill warn" : "muted"}" style="font-size:13px">${old ? "Not finished · " : ""}${esc(dayText(t.date))}</span></div>
-      <h2 style="margin-top:8px">${t.stops.length} stop${t.stops.length === 1 ? "" : "s"} · ${esc(t.vehicle.split("·")[0])}</h2>
-      <p class="sub" style="margin:0">${esc(t.trip_id)} · ${done} of ${t.stops.length} delivered</p>
-      <div class="progress"><i style="width:${t.stops.length ? done / t.stops.length * 100 : 0}%"></i></div></div>`;
+    return `<div class="card tripcard" onclick="showTrip('${esc(t.trip_id)}')" style="cursor:pointer;margin-bottom:12px">
+      <div class="headrow"><span class="k2">${esc(dayText(t.date))} · ${esc(t.trip_id)}</span>
+      <span class="pill ${old ? "warn" : t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : ""}">${old ? "Not finished" : esc(t.status === "Departed" ? "On the road" : t.status)}</span></div>
+      <h2 style="margin-top:10px;font-size:21px">${t.stops.length} stop${t.stops.length === 1 ? "" : "s"} · ${esc(t.vehicle.split("·")[0])}</h2>
+      <p class="sub" style="margin:0">${done} of ${t.stops.length} delivered${t.stops[0] ? " · first: " + esc(t.stops[0].client) : ""}</p>
+      <div class="segbar">${t.stops.map(s => `<i class="${s.done ? "ok" : s.failed ? "bad" : ""}"></i>`).join("")}</div></div>`;
   }).join("") : `<div class="card"><h2>No trips</h2><p class="sub">The office hasn't given you a trip yet.</p>
       <button class="btn ghost" onclick="load()">Check again</button></div>`;
   view("trips"); paintNet();
@@ -709,16 +762,22 @@ function showTrip(id, keepScroll) {
   const y = window.scrollY, t = curTrip, done = t.stops.filter(s => s.done).length, left = remaining(t);
   if (t.status !== "Completed") startGps();          // ask for location now, not at the customer's door
   setTitle(t.status === "Departed" ? "On the road" : t.status === "Completed" ? "Trip done" : dayText(t.date) + "'s trip");
-  $("tripPill").textContent = t.status; $("tripPill").className = "pill " + (t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : "");
+  $("tripPill").textContent = t.status === "Departed" ? "On the road" : t.status; $("tripPill").className = "pill " + (t.status === "Departed" ? "go" : t.status === "Completed" ? "ok" : "");
   $("tripSub").textContent = `${t.trip_id} · ${t.vehicle.split("·")[0]}`;
-  $("tripDone").textContent = `${done}/${t.stops.length}`;
-  $("tripBar").style.width = (t.stops.length ? done / t.stops.length * 100 : 0) + "%";
+  $("tripDone").textContent = `${done} of ${t.stops.length}`;
   $("stopCount").textContent = `(${t.stops.length})`;
   const nx = nextStop(t);
+  $("tripSegs").innerHTML = t.stops.map(s => `<i class="${s.done ? "ok" : s.failed ? "bad" : nx && s.order_id === nx.order_id &&
+    t.status === "Departed" ? "nx" : ""}"></i>`).join("");
+  // where the driver is in the day: load, leave, deliver, back at base
+  const at = t.status === "Planned" ? 0 : t.status === "Loaded" ? 1 : t.status === "Departed" ? (left.length ? 2 : 3) : 4;
+  $("journey").innerHTML = [["Load", "1"], ["Leave", "2"], [`Deliver · ${done}/${t.stops.length}`, "3"], ["Back at base", "4"]]
+    .map(([label, n], i) => `<div class="js ${i < at ? "done" : i === at ? "on" : ""}"><i>${i < at ? "✓" : n}</i>${esc(label)}</div>`).join("");
   $("stops").innerHTML = t.stops.map((s, i) => {
     const isNext = nx && s.order_id === nx.order_id && t.status === "Departed";
     const chip = s.done ? `<span class="pill ok">${esc(s.stage_label === "Saved on the phone" ? "Saved" : s.kind === "Delivery" ? "Delivered" : s.stage_label)}</span>`
                : s.failed ? `<span class="pill bad">Not done</span>` : s.arrived ? `<span class="pill go">Arrived</span>`
+               : isNext ? `<span class="pill go">Next</span>${s.eta ? `<div>${esc(s.eta)}</div>` : ""}`
                : s.eta ? `<span>${esc(s.eta)}</span>` : "";
     return `<div class="stop ${s.done ? "done" : s.failed ? "bad" : isNext ? "next" : ""}" onclick="showStop('${esc(s.order_id)}')">
       <div class="num">${s.done ? "✓" : s.failed ? "!" : i + 1}</div>
@@ -737,10 +796,15 @@ function showTrip(id, keepScroll) {
   if (nx) $("dockNext").textContent = (nx.arrived ? "Continue at " : "Next stop: ") + nx.client + " →";
   $("kmBox").classList.toggle("hidden", !(t.status === "Planned" || (t.status === "Departed" && allDone)));
   $("kmLabel").textContent = t.status === "Planned" ? "Odometer at the start (km, optional)" : "Odometer now (km, optional)";
+  $("stepTitle").textContent = t.status === "Planned" ? "Before you leave" : allDone ? "Back at base" : "Finished early?";
+  $("stepSub").textContent = t.status === "Planned" ? "Load every order, then tap the green button below."
+    : allDone ? "Every stop is done. Type the odometer reading and finish the trip below."
+    : "Only when you are back at base: stops not done stay on the way for the office.";
   $("tripEnd").classList.toggle("hidden", !(t.status === "Departed" && !allDone));
   $("stepCard").classList.toggle("hidden", $("kmBox").classList.contains("hidden") && $("tripEnd").classList.contains("hidden") && $("tripErr").classList.contains("hidden"));
   $("tripDock").classList.toggle("hidden", !dockStep && $("dockNext").classList.contains("hidden"));
-  $("tripLeft").textContent = t.status === "Completed" ? "all done" : left.length ? `${left.length} to go` + finishText(t) : "every stop done";
+  $("tripLeft").textContent = "delivered · " + (t.status === "Completed" ? "trip done" : left.length ?
+    `${left.length} to go` + finishText(t) : "every stop done");
   view("trip"); paintNet();
   paintHero(); paintStopDistances(); tripMap();
   if (keepScroll) window.scrollTo(0, y);
@@ -757,7 +821,7 @@ function paintStopDistances() {
   curTrip.stops.forEach(s => { const el = document.querySelector(`[data-dist="${CSS.escape(s.order_id)}"]`);
     if (el) el.textContent = has(s) && !s.done && !s.failed ? fmtD(distM(gpsFix, pt(s))) : ""; });
   const left = remaining(curTrip);
-  if (left.length && curTrip.status !== "Completed") $("tripLeft").textContent = `${left.length} to go` + finishText(curTrip);
+  if (left.length && curTrip.status !== "Completed") $("tripLeft").textContent = `delivered · ${left.length} to go` + finishText(curTrip);
 }
 function paintHero() {
   const t = curTrip, h = $("hero"), nx = t && nextStop(t);
@@ -765,16 +829,19 @@ function paintHero() {
   const d = gpsFix && has(nx) ? distM(gpsFix, pt(nx)) : null, here = t.status === "Departed" && near(nx);
   const nav = has(nx) ? `${nx.lat},${nx.lng}` : nx.address;
   h.className = "card hero a-hero" + (here ? " near" : "");
-  h.innerHTML = `<div class="k">${here ? "You're here" : t.status === "Loaded" ? "First stop" : "Next stop"} · ${remaining(t).length} to go</div>
-    <h2>${esc(nx.client)}</h2><div class="addr">${esc(nx.address || "No address on file")}</div>
-    ${d != null ? `<div class="far"><span><b>${fmtD(d)}</b> away</span><span><b>${roadMin(d)} min</b> by road</span>${nx.eta ? `<span>planned <b>${esc(nx.eta)}</b></span>` : ""}</div>` : nx.eta ? `<div class="far"><span>planned <b>${esc(nx.eta)}</b></span></div>` : ""}
-    ${here ? `<button class="btn" type="button" onclick="arriveFromHero('${esc(nx.order_id)}')">I'm here: I've arrived</button>`
-           : nav ? `<a class="btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(nav)}">Navigate</a>` : ""}
+  const pos = remaining(t).length, nth = t.stops.indexOf(nx) + 1;
+  const facts = [d != null ? [fmtD(d), "away"] : null, d != null ? [roadMin(d) + " min", "by road"] : null,
+                 nx.eta ? [nx.eta, "planned"] : null].filter(Boolean);
+  h.innerHTML = `<div class="k">${here ? "You're here" : t.status === "Loaded" ? "First stop" : "Next stop"} · stop ${nth} of ${t.stops.length}${pos > 1 ? ` · ${pos} to go` : ""}</div>
+    <h2>${esc(nx.client)}</h2><div class="addr">${ICON.pin}<span>${esc(nx.address || "No address on file")}</span></div>
+    ${facts.length ? `<div class="far">${facts.map(([v, w]) => `<span><b>${esc(v)}</b>${w}</span>`).join("")}</div>` : ""}
+    ${here ? `<button class="btn main" type="button" onclick="arriveFromHero('${esc(nx.order_id)}')">${ICON.check}I'm here: I've arrived</button>`
+           : nav ? `<a class="btn main" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(nav)}">${ICON.nav}Navigate</a>` : ""}
     <div class="${nx.phone ? "row3" : "row2"}">
-      ${nx.phone ? `<a class="btn ghost small" href="tel:${esc(String(nx.phone).replace(/[^0-9+]/g, ""))}">Call</a>
-      <a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(nx.phone)}?text=${encodeURIComponent(comingText(nx, d))}">I'm coming</a>` : ""}
-      <button class="btn ghost small" type="button" onclick="showStop('${esc(nx.order_id)}')">Open stop</button>
-      ${!nx.phone && nav ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://waze.com/ul?navigate=yes&${has(nx) ? "ll=" + nx.lat + "," + nx.lng : "q=" + encodeURIComponent(nx.address)}">Waze</a>` : ""}
+      ${nx.phone ? `<a class="btn ghost small" href="tel:${esc(String(nx.phone).replace(/[^0-9+]/g, ""))}">${ICON.phone}Call</a>
+      <a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(nx.phone)}?text=${encodeURIComponent(comingText(nx, d))}">${ICON.chat}I'm coming</a>` : ""}
+      <button class="btn ghost small" type="button" onclick="showStop('${esc(nx.order_id)}')">${ICON.open}Open stop</button>
+      ${!nx.phone && nav ? `<a class="btn ghost small" target="_blank" rel="noopener" href="https://waze.com/ul?navigate=yes&${has(nx) ? "ll=" + nx.lat + "," + nx.lng : "q=" + encodeURIComponent(nx.address)}">${ICON.nav}Waze</a>` : ""}
     </div>`;
   if (here && !arrivedHint.has(nx.order_id) && !nx.arrived) { arrivedHint.add(nx.order_id); haptic([80, 60, 80]); toast(`You're at ${nx.client}. Tap "I've arrived".`); }
   // smarter order: a stop much closer than the planned next one
@@ -824,7 +891,8 @@ function paintStopHead() {
   $("stopKind").textContent = stopName(s).replace(/&amp;/g, "&") + (s.done ? (other ? " · done" : " · delivered") : s.failed ? " · not done" : s.arrived ? " · arrived" : "");
   $("stopKind").className = "pill " + (s.done ? "ok" : s.failed ? "bad" : s.arrived ? "go" : "");
   const stage = s.done ? 3 : s.arrived ? 1 : 0;
-  [...$("flow").children].forEach((el, i) => el.className = i < stage ? "done" : i === stage ? "on" : "");
+  [...$("flow").children].forEach((el, i) => { el.className = "js " + (i < stage ? "done" : i === stage ? "on" : "");
+    el.querySelector("i").textContent = i < stage ? "✓" : i + 1; });
   $("flow").classList.toggle("hidden", !!other);
   // the bottom button: arrive first, then the signature (or Done for a collection)
   const open = !s.done && !s.failed;
@@ -856,9 +924,9 @@ function showStop(oid) {
   $("failSum").textContent = other ? "Couldn't do it?" : "Couldn't deliver?";
   $("failBox").open = false;
   const links = [], q = has(s) ? `${s.lat},${s.lng}` : s.address;
-  if (q) links.push(`<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(q)}">Directions</a>`);
-  if (s.phone) links.push(`<a class="btn ghost small" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">Call</a>`,
-                          `<a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(s.phone)}?text=${encodeURIComponent(comingText(s, gpsFix && has(s) ? distM(gpsFix, pt(s)) : null))}">WhatsApp</a>`);
+  if (q) links.push(`<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(q)}">${ICON.nav}Directions</a>`);
+  if (s.phone) links.push(`<a class="btn ghost small" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">${ICON.phone}Call</a>`,
+                          `<a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(s.phone)}?text=${encodeURIComponent(comingText(s, gpsFix && has(s) ? distM(gpsFix, pt(s)) : null))}">${ICON.chat}WhatsApp</a>`);
   $("stopLinks").innerHTML = links.join("");
   $("stopLinks").className = links.length === 3 ? "row3" : "row2";
   cond = "Good"; photo = ""; $("photoPrev").classList.add("hidden"); $("rb").value = ""; $("note").value = ""; $("why").value = "";

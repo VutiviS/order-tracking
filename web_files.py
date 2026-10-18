@@ -9,7 +9,7 @@ from pathlib import Path
 
 KINDS = {".py", ".html", ".js", ".json", ".txt", ".png", ".md", ".css", ".ico", ".svg"}
 TEXT = {".py", ".html", ".js", ".json", ".txt", ".md", ".css", ".svg"}
-NAMES = {"Procfile"}
+NAMES = {"Procfile", "CNAME"}          # CNAME: the company website's own address (inventra.co.za) on GitHub Pages
 
 
 def deployable(folder) -> list:

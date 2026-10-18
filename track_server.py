@@ -33,8 +33,12 @@ DEFAULT_SUPABASE_KEY = (
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxuaW1qYXRyY3ZweG51bWt4cXpzIiw"
     "icm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzY2NDYsImV4cCI6MjA3Nzk1MjY0Nn0.P-KgfRbbR1WDXQ31lViUYlHA0NpdCLd9YgUcV2DbmLA"
 )
+# INVENTRA Private (INVENTRA_EDITION=private, on the customer's own server): never the built-in cloud database.
+PRIVATE_EDITION = (os.environ.get("INVENTRA_EDITION") or "").strip().lower() == "private"
 for _name, _value in (("SUPABASE_URL", DEFAULT_SUPABASE_URL), ("SUPABASE_KEY", DEFAULT_SUPABASE_KEY)):
     if not (os.environ.get(_name) or "").strip():
+        if PRIVATE_EDITION:
+            raise SystemExit(f"INVENTRA Private: set {_name} to the customer's own database (private_server/README).")
         os.environ[_name] = _value
     else:
         os.environ[_name] = os.environ[_name].strip().strip('"').strip("'")
