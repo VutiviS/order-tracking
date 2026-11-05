@@ -93,6 +93,30 @@ def known_codes(tables: Dict[str, List[dict]]) -> Dict[str, str]:
     return out
 
 
+def _context(tables: Dict[str, List[dict]]) -> dict:
+    """What every bin's report shares - stock on hand, the bin contents, the deliveries left - worked out once per
+    read of the tables (kept in the tables dict), so a list of all bins doesn't repeat it for each bin."""
+    ctx = tables.get("_ctx")
+    if ctx is not None:
+        return ctx
+    names = {str(p.get("sku")): str(p.get("productdescription") or p.get("sku") or "") for p in tables["products"]}
+    holdings = inventra_stock.on_hand(tables["invoiceitems"], tables["despatching"], tables["customerreturns"],
+                                      tables["supplier_returns"], tables["inventory_removals"],
+                                      tables["production_runs"],
+                                      [a for a in tables["stock_adjustments"] if a.get("status") == "Approved"])
+
+    def on_hand(sku):
+        return max(0.0, holdings[sku].qty) if sku in holdings else 0.0
+    contents = inventra_bins.contents(tables["production_runs"], tables["stock_bin_moves"], on_hand,
+                                      receipts=tables["stock_items"])
+    lots = inventra_stock.lots(holdings, tables["invoiceitems"], tables["invoices"],
+                               [s for s in tables["stock_items"] if (s.get("product_type") or "inventory") == "inventory"],
+                               names)
+    ctx = {"names": names, "holdings": holdings, "contents": contents, "lots": lots}
+    tables["_ctx"] = ctx
+    return ctx
+
+
 def report(tables: Dict[str, List[dict]], scanned: str, warn: Optional[int] = None,
            today: Optional[date] = None) -> Optional[dict]:
     """Everything the bin view shows for one scanned code, or None when there is no such bin."""
@@ -116,17 +140,9 @@ def report(tables: Dict[str, List[dict]], scanned: str, warn: Optional[int] = No
                         description=inventra_bins.real_description(b.get("description")) or info["description"],
                         active=b.get("active") is not False, listed=True)
 
-    names = {str(p.get("sku")): str(p.get("productdescription") or p.get("sku") or "") for p in tables["products"]}
-    holdings = inventra_stock.on_hand(tables["invoiceitems"], tables["despatching"], tables["customerreturns"],
-                                      tables["supplier_returns"], tables["inventory_removals"],
-                                      tables["production_runs"],
-                                      [a for a in tables["stock_adjustments"] if a.get("status") == "Approved"])
-
-    def on_hand(sku):
-        return max(0.0, holdings[sku].qty) if sku in holdings else 0.0
-
+    ctx = _context(tables)
+    names, holdings, contents, lots = ctx["names"], ctx["holdings"], ctx["contents"], ctx["lots"]
     runs, ledger, receipts = tables["production_runs"], tables["stock_bin_moves"], tables["stock_items"]
-    contents = inventra_bins.contents(runs, ledger, on_hand, receipts=receipts)
     now = {}
     for c in contents:
         if str(c["bin"]).upper() == want:
@@ -212,9 +228,6 @@ def report(tables: Dict[str, List[dict]], scanned: str, warn: Optional[int] = No
                             "detail": "Written off, used in production or returned to the supplier"})
 
     # expiry of what is in the bin
-    lots = inventra_stock.lots(holdings, tables["invoiceitems"], tables["invoices"],
-                               [s for s in tables["stock_items"] if (s.get("product_type") or "inventory") == "inventory"],
-                               names)
     products = []
     for sku, r in per.items():
         have = now.get(sku, 0.0)
