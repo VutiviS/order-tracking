@@ -139,8 +139,10 @@
   .tl li:last-child::before { display:none; }
   .tl li::after { content:""; position:absolute; left:0; top:4px; width:12px; height:12px; background:var(--card);
                   border:2px solid var(--muted); }
-  .tl li:first-child::after { background:var(--green); border-color:var(--green); }
-  .tl li.bad::after { background:var(--red); border-color:var(--red); }
+  .tl li::after { background:var(--green); border-color:var(--green); opacity:.55; }          /* happened */
+  .tl li:first-child::after { opacity:1; box-shadow:0 0 0 4px rgba(47,143,42,.2); }          /* the latest */
+  .tl li::before { background:var(--green); opacity:.35; }
+  .tl li.bad::after { background:var(--red); border-color:var(--red); opacity:1; }
   .tl .t { font-weight:600; }
   .tl .w { font-size:12px; color:var(--muted); }
   .tl .d { font-size:14px; color:var(--muted); }
@@ -281,6 +283,16 @@
 const CO = {{COMPANY_JSON}};
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// "2026-10-22" -> "today " / "tomorrow " / "on Fri 23 Oct " (the customer's own calendar, not a computer date)
+function dayWord(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+  if (!m) return "";
+  const d = new Date(+m[1], +m[2] - 1, +m[3]), t = new Date(); t.setHours(0, 0, 0, 0);
+  const days = Math.round((d - t) / 86400000);
+  if (days === 0) return "today ";
+  if (days === 1) return "tomorrow ";
+  return "on " + d.toLocaleDateString("en-ZA", {weekday: "short", day: "numeric", month: "short"}) + " ";
+}
 let current = null, timer = null, rating = 0;
 
 function show(which) {
@@ -427,7 +439,7 @@ function paintVehicle(d) {
                       `You are delivery ${d.stop} of ${d.stops} · ${d.before} delivery${d.before === 1 ? "" : "s"} before yours`}</div>`;
     if (d.live_eta) h += `<div class="live"><span class="pulse"></span><div><b>Arriving about ${esc(d.live_eta)}</b>
       <div class="sub" style="margin:2px 0 0">About ${esc(d.live_minutes)} min from where the vehicle is now${d.before ? ", including the deliveries before yours" : ""}.</div></div></div>`;
-    else if (d.window) h += `<div style="margin:6px 0 2px"><b>Expected between ${esc(d.window)}</b>${d.trip_date ? ` <span class="sub">(${esc(d.trip_date)})</span>` : ""}</div>`;
+    else if (d.window) h += `<div style="margin:6px 0 2px"><b>Expected ${esc(dayWord(d.trip_date))}between ${esc(d.window)}</b></div>`;
     if (d.live_eta && d.window) h += `<div class="sub" style="margin:2px 0 0">Planned between ${esc(d.window)}</div>`;
     if (d.left_at) h += `<div class="sub" style="margin:2px 0 0">Left ${esc(d.left_at)}</div>`;
     if (d.last_seen) h += `<div class="sub" style="margin:2px 0 0">Vehicle last seen ${esc(d.last_seen)}</div>`;
@@ -439,9 +451,10 @@ function paintVehicle(d) {
     const dest = d.dest_lat != null ? [d.dest_lat, d.dest_lng] : null;
     if (!map) { map = L.map("map", {zoomControl: true, attributionControl: true}).setView([d.lat, d.lng], 13);
       const streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-                                  {maxZoom: 18, attribution: "Map © Esri"}).addTo(map);
+                                  {maxZoom: 20, maxNativeZoom: 19, attribution: "Map © Esri"}).addTo(map);
+      // zoom in far enough to see the houses (the closest pictures are enlarged beyond level 19)
       const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-                              {maxZoom: 18, attribution: "Imagery © Esri"});
+                              {maxZoom: 20, maxNativeZoom: 19, attribution: "Imagery © Esri"});
       L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
       marker = L.circleMarker([d.lat, d.lng], {radius: 9, color: "#052B63", fillColor: "#5DB032", fillOpacity: 1, weight: 3}).addTo(map).bindTooltip("The vehicle");
       if (dest) { L.marker(dest, {icon: L.divIcon({className: "", html: '<div class="pin">You</div>', iconSize: [36, 22], iconAnchor: [18, 22]})}).addTo(map);

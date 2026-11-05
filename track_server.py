@@ -626,7 +626,8 @@ class Drivers:
         return self.driver_trips({}, d)
 
 
-STATIC = {"/manifest.json": "application/manifest+json", "/icon-192.png": "image/png", "/icon-512.png": "image/png",
+STATIC = {"/manifest.json": "application/manifest+json", "/warehouse_manifest.json": "application/manifest+json",
+          "/icon-192.png": "image/png", "/icon-512.png": "image/png",
           "/apple-touch-icon.png": "image/png", "/logo.png": "image/png", "/logo.svg": "image/svg+xml",
           "/logo-light.svg": "image/svg+xml", "/logo-full.svg": "image/svg+xml", "/logo-full-light.svg": "image/svg+xml",
           "/favicon.svg": "image/svg+xml", "/driver_sw.js": "text/javascript; charset=utf-8"}
@@ -831,7 +832,20 @@ class Handler(BaseHTTPRequestHandler):
             if path.startswith("/api/wh/"):
                 act = path[len("/api/wh/"):]
                 t = self.tracker
+                if act == "labels":                                   # bin labels: a PDF to print or share
+                    data, name = t.wh_bin_labels(body)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/pdf")
+                    self.send_header("Content-Length", str(len(data)))
+                    self.send_header("Content-Disposition", f'inline; filename="{name}"')
+                    self.send_header("Cache-Control", "no-store")
+                    for h_name, value in SECURITY_HEADERS:
+                        self.send_header(h_name, value)
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 fn = {"login": lambda: t.wh_login(body, self._ip()), "lookup": lambda: t.wh_lookup(body),
+                      "bin": lambda: t.wh_bin(body),
                       "bins": lambda: t.wh_bins(body), "orders": lambda: t.wh_orders(body), "pick": lambda: t.wh_pick(body),
                       "po": lambda: t.wh_po(body), "receive": lambda: t.wh_receive(body), "move": lambda: t.wh_move(body),
                       "count": lambda: t.wh_count(body)}.get(act)

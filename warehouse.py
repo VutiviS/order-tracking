@@ -8,7 +8,11 @@ movement records who did it and when.
             (they become exceptions in the Control Tower);
   move      put away or move stock between bins (the bin ledger the desktop apps use);
   count     count a bin: the difference becomes a stock count waiting for approval in Stock Control;
-  look up   scan anything (product, serial, bin) to see what and where it is.
+  look up   scan anything (product, serial, bin) to see what and where it is;
+  bin       scan a bin label: what is in the bin - binned, moved, dispatched, available now, expiring soon - and its
+            movements (inventra_bin_report: the same as Stock Control > Scan a bin);
+  labels    bin labels to print: the bin code, a barcode and a QR code (inventra_bin_labels, the same PDF as the
+            desktop).
 
 Mixed into the tracking site's Tracker (it needs self.db, self._rows, self._limit, self._failed)."""
 
@@ -117,16 +121,33 @@ class Warehouse:
 
     def _bins_state(self, holdings, products):
         qty = {k: h.qty for k, h in holdings.items()}
-        return inventra_bins.build_state(self._all("stock_bins"),
+        # the same bins and contents as the desktop: Procurement's bins too, and deliveries received into a bin
+        return inventra_bins.build_state(inventra_bins.merge_bin_lists(self._all("stock_bins"), self._all("bins")),
                                          self._all("production_runs"), self._all("stock_bin_moves"),
                                          lambda s: qty.get(s, 0.0),
-                                         {k: p.get("productdescription") or k for k, p in products.items()})
+                                         {k: p.get("productdescription") or k for k, p in products.items()},
+                                         receipts=self._all("stock_items"))
 
     def _all(self, table):
         try:
             return self.db.table(table).select("*").execute().data or []
         except Exception:
             return []
+
+    def _bin_list(self) -> list:
+        """Every bin (Stock Control's list and Procurement's), with zone and description."""
+        return inventra_bins.merge_bin_lists(self._all("stock_bins"), self._all("bins"))
+
+    _bin_cache = {"at": 0.0, "tables": None}
+
+    def _bin_tables(self) -> dict:
+        """What the bin view needs, read once and reused for 30 seconds (scanning a row of bins is quick)."""
+        import inventra_bin_report
+        c = Warehouse._bin_cache
+        if c["tables"] is None or time.time() - c["at"] > 30:
+            c["tables"] = inventra_bin_report.load(lambda name: self.db.table(name).select("*").execute().data or [])
+            c["at"] = time.time()
+        return c["tables"]
 
     def _identify(self, code: str, products: dict, holdings: dict) -> dict:
         """What a scanned code is: a product (SKU or its barcode/identifier), a serial number or a bin."""
@@ -147,7 +168,7 @@ class Warehouse:
                 if s.upper() == up:
                     return {"type": "serial", "sku": it.get("sku"), "serial": s, "in_stock": False,
                             "description": (products.get(str(it.get("sku"))) or {}).get("productdescription") or it.get("sku")}
-        for b in self._all("stock_bins"):
+        for b in self._bin_list():
             if str(b.get("bin_code") or "").upper() == up:
                 return {"type": "bin", "bin": b["bin_code"], "description": b.get("description") or ""}
         raise WarehouseError(f"{c} isn't a product, serial number or bin we know.", 404)
@@ -167,7 +188,55 @@ class Warehouse:
 
     def wh_bins(self, body: dict) -> dict:
         self._who(body.get("token"))
-        return {"bins": sorted(b["bin_code"] for b in self._all("stock_bins") if b.get("active") is not False)}
+        every = sorted(self._bin_list(), key=lambda b: str(b.get("bin_code")))
+        return {"bins": [b["bin_code"] for b in every if b.get("active") is not False],
+                "list": [{"code": b["bin_code"], "zone": b.get("zone") or "", "description": b.get("description") or "",
+                          "active": b.get("active") is not False} for b in every]}
+
+    # ---- a bin: what is in it and what happened to it ----
+    def wh_bin(self, body: dict) -> dict:
+        self._who(body.get("token"))
+        import inventra_bin_report
+        code = str(body.get("code") or "").strip()
+        if not code:
+            raise WarehouseError("Scan a bin label.")
+        r = inventra_bin_report.report(self._bin_tables(), code)
+        if r is None:
+            Warehouse._bin_cache["tables"] = None                    # (a bin made a moment ago: read again)
+            r = inventra_bin_report.report(self._bin_tables(), code)
+        if r is None:
+            raise WarehouseError(f"There is no bin {code.upper()}. Check the label.", 404)
+        return r
+
+    # ---- bin labels (PDF) ----
+    def wh_bin_labels(self, body: dict):
+        """-> (pdf bytes, file name). body: codes [..] or zone or all, size sheet|shelf|sign, copies, skip."""
+        self._who(body.get("token"))
+        import io
+        import inventra_bin_labels
+        size = body.get("size") if body.get("size") in inventra_bin_labels.SIZES else "sheet"
+        every = self._bin_list()
+        if body.get("codes"):
+            want = [str(c).strip().upper() for c in body["codes"] if str(c).strip()][:500]
+            known = {str(b["bin_code"]).upper(): b for b in every}
+            chosen = [known.get(c, {"bin_code": c}) for c in want]
+        elif body.get("zone"):
+            chosen = [b for b in every if str(b.get("zone") or "") == str(body["zone"]) and b.get("active") is not False]
+        else:
+            chosen = [b for b in every if b.get("active") is not False]
+        if not chosen:
+            raise WarehouseError("No bins chosen.")
+        try:
+            copies = max(1, min(20, int(body.get("copies") or 1)))
+            skip = max(0, min(50, int(body.get("skip") or 0)))
+        except (TypeError, ValueError):
+            raise WarehouseError("Labels per bin and labels already used must be whole numbers.")
+        out = io.BytesIO()
+        inventra_bin_labels.bin_labels_pdf(out, [{"code": b["bin_code"], "zone": b.get("zone") or "",
+                                                  "description": b.get("description") or ""} for b in chosen],
+                                           size, skip=skip if size != "sign" else 0, copies=copies)
+        name = chosen[0]["bin_code"] if len(chosen) == 1 else f"{len(chosen)} bins"
+        return out.getvalue(), f"Bin labels {name}.pdf".replace("/", "-")
 
     # ---- picking and packing ----
     def wh_orders(self, body: dict) -> dict:
@@ -309,7 +378,7 @@ class Warehouse:
         qty = 1.0 if what["type"] == "serial" else num(body.get("qty"))
         to_bin = str(body.get("to_bin") or "").strip().upper()
         from_bin = str(body.get("from_bin") or "").strip().upper()
-        bins = {str(b.get("bin_code")).upper(): b["bin_code"] for b in self._all("stock_bins") if b.get("active") is not False}
+        bins = {str(b.get("bin_code")).upper(): b["bin_code"] for b in self._bin_list() if b.get("active") is not False}
         if to_bin not in bins:
             raise WarehouseError(f"Bin {to_bin or '(none)'} doesn't exist or isn't active.")
         if qty <= 0:
@@ -335,7 +404,7 @@ class Warehouse:
     def wh_count(self, body: dict) -> dict:
         u = self._who(body.get("token"), "count")
         products, holdings = self._products(), self._stock()
-        bins = {str(b.get("bin_code")).upper(): b["bin_code"] for b in self._all("stock_bins")}
+        bins = {str(b.get("bin_code")).upper(): b["bin_code"] for b in self._bin_list()}
         b = bins.get(str(body.get("bin") or "").strip().upper())
         if not b:
             raise WarehouseError("Scan the bin first.")

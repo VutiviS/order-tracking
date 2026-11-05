@@ -107,6 +107,8 @@
   .btn svg { width:20px; height:20px; flex:none; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; } .row2 .btn { margin-top:8px; }
   .row3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; } .row3 .btn { margin-top:8px; }
+  a.side3d { display:block; width:36px; height:30px; line-height:30px; text-align:center; background:#fff; color:#052B63;
+             font:700 12px/30px system-ui, sans-serif; text-decoration:none; border-radius:0; }
   .msg { padding:11px 12px; margin-top:10px; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
   .msg.ok { background:var(--ok-bg); color:var(--ok-ink); } .msg.warn { background:var(--warn-bg); color:var(--warn-ink); }
   .pill { display:inline-block; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; background:var(--soft); color:var(--ink); }
@@ -662,10 +664,23 @@ function loadLeaflet() {
 }
 function baseLayers(map) {
   // Esri map tiles: no key needed and no "where from" rules (OpenStreetMap's own servers block busy apps)
-  const opt = {maxZoom: 19, maxNativeZoom: 19, referrerPolicy: "strict-origin-when-cross-origin"};
+  const opt = {maxZoom: 20, maxNativeZoom: 19, referrerPolicy: "strict-origin-when-cross-origin"};   // houses visible
   const streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", opt).addTo(map);
   const sat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", opt);
   L.control.layers({"Map": streets, "Satellite": sat}, null, {position: "topright"}).addTo(map);
+  // satellite pictures only show the roofs: "3D" opens Google's tilted 3D view of the middle of the map (the walls)
+  const Side = L.Control.extend({options: {position: "topright"}, onAdd() {
+    const a = L.DomUtil.create("a", "leaflet-bar side3d");
+    a.href = "#"; a.textContent = "3D"; a.title = "See the sides of the buildings (Google Maps 3D)";
+    L.DomEvent.on(a, "click", e => { L.DomEvent.preventDefault(e); const c = map.getCenter();
+      window.open(sideView(c.lat, c.lng, map.getZoom()), "_blank", "noopener"); });
+    L.DomEvent.disableClickPropagation(a);
+    return a; }});
+  new Side().addTo(map);
+}
+function sideView(lat, lng, zoom) {
+  const h = ({20: 120, 19: 180, 18: 300, 17: 600, 16: 1200})[zoom] || (zoom < 16 ? 2500 : 120);
+  return `https://www.google.com/maps/@${(+lat).toFixed(6)},${(+lng).toFixed(6)},${h}a,35y,0h,65t/data=!3m1!1e3`;
 }
 const pinIcon = (text, color, cls) => L.divIcon({className: "", iconSize: cls ? [34, 34] : [26, 26], iconAnchor: cls ? [17, 17] : [13, 13],
   html: `<div class="pin ${cls || ""}" style="background:${color}">${text}</div>`});
@@ -676,7 +691,9 @@ function tripMap() {
   $("trip").classList.toggle("nomap", !stops.length);
   if (!stops.length) return;
   loadLeaflet().then(() => {
-    if (!tmap) { tmap = L.map("tmap", {zoomControl: true, attributionControl: false}); baseLayers(tmap); }
+    if (!tmap) { tmap = L.map("tmap", {zoomControl: true, attributionControl: false});
+      tmap.setView([+stops[0].lat, +stops[0].lng], 13);       // a view at once: nothing may ask an unplaced map for its bounds
+      baseLayers(tmap); }
     if (tLayer) tLayer.remove();
     tLayer = L.layerGroup().addTo(tmap);
     const nx = nextStop(curTrip), pts = [];
@@ -925,6 +942,7 @@ function showStop(oid) {
   $("failBox").open = false;
   const links = [], q = has(s) ? `${s.lat},${s.lng}` : s.address;
   if (q) links.push(`<a class="btn ghost small" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(q)}">${ICON.nav}Directions</a>`);
+  if (has(s)) links.push(`<a class="btn ghost small" target="_blank" rel="noopener" href="${sideView(s.lat, s.lng, 19)}">${ICON.nav}See the building</a>`);
   if (s.phone) links.push(`<a class="btn ghost small" href="tel:${esc(String(s.phone).replace(/[^0-9+]/g, ""))}">${ICON.phone}Call</a>`,
                           `<a class="btn ghost small" target="_blank" rel="noopener" href="https://wa.me/${intlPhone(s.phone)}?text=${encodeURIComponent(comingText(s, gpsFix && has(s) ? distM(gpsFix, pt(s)) : null))}">${ICON.chat}WhatsApp</a>`);
   $("stopLinks").innerHTML = links.join("");

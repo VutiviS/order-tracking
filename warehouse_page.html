@@ -11,6 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Warehouse">
 <meta name="robots" content="noindex">
+<link rel="manifest" href="/warehouse_manifest.json">
 <title>Warehouse · {{COMPANY}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +58,30 @@
   #cam video { flex:1; width:100%; object-fit:cover; } #cam .frame { position:absolute; left:10%; right:10%; top:35%; height:22%; border:3px solid #5DB032; }
   #cam button { margin:0; } #cam .hint { color:#fff; text-align:center; padding:10px; }
   @media (max-width:360px) { .tiles { grid-template-columns:1fr; } }
+  /* the bin view */
+  .binhead { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; } .binhead h2 { font-size:26px; margin:0; }
+  .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
+  .stat { border:1px solid var(--line); padding:8px 10px; border-top:3px solid var(--navy); min-width:0; }
+  .stat b { display:block; font-size:20px; font-variant-numeric:tabular-nums; } .stat span { font-size:11px; color:var(--muted); }
+  .stat.ok { border-top-color:var(--green); } .stat.warn { border-top-color:var(--amber); } .stat.bad { border-top-color:var(--red); }
+  .prod { border-top:1px solid var(--line); padding:10px 0; } .prod:first-of-type { border-top:0; }
+  .prod .top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .prod .nums { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:6px; font-size:12px; color:var(--muted); }
+  .prod .nums b { display:block; color:var(--ink); font-size:15px; font-variant-numeric:tabular-nums; }
+  .chip { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; margin-top:6px; background:var(--soft); }
+  .chip.expired { background:var(--err-bg); color:var(--err-ink); } .chip.expiring { background:#FEF3C7; color:#92400E; }
+  .chip.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  @media (prefers-color-scheme: dark) { .chip.expiring { background:#3A2A0C; color:#FCD34D; } }
+  .mv { display:flex; justify-content:space-between; gap:10px; padding:8px 0; border-top:1px solid var(--line); font-size:13px; }
+  .mv:first-of-type { border-top:0; } .mv .w { font-size:12px; color:var(--muted); } .mv .q { font-weight:700; white-space:nowrap; }
+  .mv .q.in { color:var(--green); }
+  .seg { display:flex; border:1px solid var(--line); } .seg button { flex:1; border:0; background:var(--card); padding:10px 6px; font-size:13px; cursor:pointer; }
+  .seg button.on { background:var(--navy); color:#fff; font-weight:600; }
+  select { width:100%; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:12px; font:inherit; font-size:16px; }
+  .pick { max-height:45vh; overflow:auto; border:1px solid var(--line); margin-top:8px; }
+  .pick label { display:flex; gap:10px; align-items:center; margin:0; padding:10px; border-top:1px solid var(--line); font-weight:400; }
+  .pick label:first-child { border-top:0; } .pick input { width:auto; } .pick .w { font-size:12px; color:var(--muted); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 </style>
 </head>
 <body>
@@ -87,7 +112,10 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp
 let token = localStorage.getItem("inventra_wh") || "", me = JSON.parse(localStorage.getItem("inventra_wh_me") || "{}");
 const MODES = {pick: ["Pick & pack", "Orders waiting to go out"], receive: ["Goods received", "Check a delivery against its order"],
                move: ["Put away / move", "Put stock in a bin or move it"], count: ["Count a bin", "Count what is in a bin"],
-               lookup: ["Look up", "Scan anything: what and where is it?"]};
+               lookup: ["Look up", "Scan anything: what and where is it?"],
+               bin: ["Scan a bin", "What is in it: binned, dispatched, available, expiring"],
+               labels: ["Bin labels", "Print bin numbers and barcodes"]};
+const EVERYONE = ["lookup", "bin", "labels"];           // every signed-in person may look up, scan bins, print labels
 
 function say(t, bad) { const m = $(bad ? "err" : "ok"); $(bad ? "ok" : "err").classList.add("hidden"); m.textContent = t; m.classList.remove("hidden"); if (!bad) setTimeout(() => m.classList.add("hidden"), 4000); window.scrollTo(0, 0); }
 function clear() { $("ok").classList.add("hidden"); $("err").classList.add("hidden"); }
@@ -148,24 +176,127 @@ $("out").onclick = () => { localStorage.removeItem("inventra_wh"); token = ""; v
 $("home").onclick = () => { closeCam(); menu(); };
 function menu() {
   $("title").textContent = me.name ? "Hello " + me.name.split(" ")[0] : "Warehouse";
-  const can = (me.can || []).concat(["lookup"]);
+  const can = (me.can || []).concat(EVERYONE);
   $("tiles").innerHTML = Object.entries(MODES).filter(([k]) => can.includes(k)).map(([k, [t, s]]) =>
     `<button class="tile" type="button" onclick="open_('${k}')"><b>${t}</b><span>${s}</span></button>`).join("");
   view("menu");
 }
-function open_(k) { clear(); $("title").textContent = MODES[k][0]; view("work"); ({pick, receive, move, count, lookup})[k](); }
+function open_(k) { clear(); $("title").textContent = MODES[k][0]; view("work"); ({pick, receive, move, count, lookup, bin, labels})[k](); }
 
 // ---- look up ----
 function lookup() {
   $("v-work").innerHTML = `<div class="card">${scanBox("Scan or type a product, serial or bin")}</div><div id="res"></div>`;
   wireScan(async code => {
     try { const d = await api("lookup", {code}); beep(true);
+      if (d.type === "bin") { showBin(await api("bin", {code: d.bin})); return; }   // a bin label: the full bin view
       $("res").innerHTML = `<div class="card"><h3>${esc(d.type)}</h3><h2>${esc(d.description || d.bin)}</h2>` +
         (d.type === "bin" ? (d.holds.length ? d.holds.map(h => `<div class="row"><span>${esc(h.description)}</span><span class="qty">${h.qty}</span></div>`).join("") : `<p class="sub">Empty</p>`)
           : `<p class="sub">${esc(d.sku)}${d.serial ? " · serial " + esc(d.serial) + (d.in_stock ? " · in stock" : " · NOT in stock") : ""}</p>
              <div class="row"><span>On hand</span><span class="qty">${d.on_hand}</span></div><div class="row"><span>Where</span><span>${esc(d.where)}</span></div>`) + `</div>`;
     } catch (e) { beep(false); say(e.message, true); }
   });
+}
+
+// ---- scan a bin: what is in it, binned, dispatched, available now, expiring soon, and its movements ----
+const fmtN = v => (Math.round((+v || 0) * 100) / 100).toLocaleString();
+function bin() {
+  $("v-work").innerHTML = `<div class="card">${scanBox("Scan the bin label, or type the bin code")}
+    <p class="sub" style="margin:8px 0 0">Tap Camera and point it at the barcode or the QR code on the bin label.</p></div><div id="res"></div>`;
+  wireScan(async code => {
+    try { showBin(await api("bin", {code})); beep(true); }
+    catch (e) { beep(false); say(e.message, true); }
+  });
+}
+function fmtDate(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return isNaN(d) ? iso : d.toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"}); }
+function expiryText(p) {
+  if (!p.expiry) return p.available > 0 ? "No expiry date" : "";
+  let t = "Expires " + fmtDate(p.expiry);
+  if (p.expiry_days != null && p.available > 0) t += p.expiry_days < 0 ? ` (${-p.expiry_days} days ago)` : p.expiry_days === 0 ? " (today)" : ` (in ${p.expiry_days} days)`;
+  return t + (p.expiry_source === "product" ? " · product's earliest date" : "");
+}
+function showBin(d) {
+  clear();
+  const b = d.bin, t = d.totals;
+  const about = [b.zone ? "Zone " + b.zone : "", b.description || "", b.active ? "" : "Inactive bin"].filter(Boolean).join(" · ");
+  const prods = d.products.map(p => `<div class="prod"><div class="top"><div><b>${esc(p.description)}</b><div class="w sub" style="margin:0">${esc(p.sku)}</div></div>
+      <div style="text-align:right"><span class="qty">${fmtN(p.available)}</span><div class="w sub" style="margin:0">available now</div></div></div>
+      <div class="nums"><div><b>${fmtN(p.binned)}</b>binned</div><div><b>${fmtN(p.moved_out)}</b>moved out</div><div><b>${fmtN(p.dispatched)}</b>dispatched</div></div>
+      ${p.available > 0 ? `<span class="chip ${esc(p.status)}">${esc(p.status_text)}${p.expired_qty ? " · " + fmtN(p.expired_qty) + " expired" : ""}${p.expiring_qty ? " · " + fmtN(p.expiring_qty) + " expiring soon" : ""}</span>` : `<span class="chip">Nothing left in this bin</span>`}
+      ${expiryText(p) ? `<div class="w sub" style="margin:4px 0 0">${esc(expiryText(p))}</div>` : ""}</div>`).join("");
+  const moves = d.history.slice(0, 60).map(h => `<div class="mv"><div><b>${esc(h.movement)}</b> · ${esc(h.description)}<div class="w">${esc(h.when || "—")}${h.detail ? " · " + esc(h.detail) : ""}</div></div>
+      <span class="q ${h.qty > 0 ? "in" : ""}">${h.qty > 0 ? "+" : "−"}${fmtN(Math.abs(h.qty))}</span></div>`).join("");
+  $("res").innerHTML = `<div class="card"><h3>Bin</h3><div class="binhead"><h2>${esc(b.code)}</h2></div>${about ? `<p class="sub" style="margin:2px 0 0">${esc(about)}</p>` : ""}
+      <div class="stats">
+        <div class="stat ok"><b>${fmtN(t.available)}</b><span>available now</span></div>
+        <div class="stat"><b>${fmtN(t.products)}</b><span>products</span></div>
+        <div class="stat"><b>${fmtN(t.binned)}</b><span>binned</span></div>
+        <div class="stat"><b>${fmtN(t.dispatched)}</b><span>dispatched</span></div>
+        <div class="stat warn"><b>${fmtN(t.expiring)}</b><span>expiring ≤ ${d.warn_days} days</span></div>
+        <div class="stat bad"><b>${fmtN(t.expired)}</b><span>expired</span></div></div>
+      <p class="sub" style="margin:8px 0 0">As of ${esc(d.as_of)} · ready for the next scan</p></div>
+    <div class="card"><h3>In this bin</h3>${prods || `<p class="sub">Nothing has been put in this bin yet</p>`}</div>
+    <div class="card"><h3>Movements</h3>${moves || `<p class="sub">No movements recorded</p>`}
+      <p class="sub" style="margin:8px 0 0">Dispatched = units that left the warehouse from this bin (oldest stock first).</p></div>
+    <button class="btn ghost" type="button" onclick="labels(['${esc(b.code)}'])">Print this bin's label</button>`;
+}
+
+// ---- bin labels: the bin code, a barcode and a QR code, as a PDF to print or share ----
+let binList = [], lblMode = "all", lblUrl = "";
+async function labels(only) {
+  $("title").textContent = MODES.labels[0]; view("work"); clear();
+  $("v-work").innerHTML = `<div class="card">Loading the bins…</div>`;
+  try { binList = (await api("bins")).list || []; } catch (e) { return say(e.message, true); }
+  const zones = [...new Set(binList.map(b => b.zone).filter(Boolean))].sort();
+  lblMode = only ? "pick" : "all";
+  $("v-work").innerHTML = `<div class="card"><h3>Which bins</h3>
+      <div class="seg" id="lseg"><button type="button" data-m="all">All bins</button><button type="button" data-m="zone">A zone</button><button type="button" data-m="pick">Choose</button></div>
+      <div id="lzone" class="hidden"><label for="lz">Zone</label><select id="lz">${zones.length ? zones.map(z => `<option>${esc(z)}</option>`).join("") : `<option value="">No zones yet</option>`}</select></div>
+      <div id="lpick" class="hidden"><input id="lfind" placeholder="Find a bin" style="margin-top:10px" autocomplete="off">
+        <div class="pick" id="lbins">${binList.map(b => `<label data-k="${esc((b.code + " " + b.zone + " " + b.description).toLowerCase())}"><input type="checkbox" value="${esc(b.code)}" ${only && only.includes(b.code) ? "checked" : ""}>
+          <div><b>${esc(b.code)}</b><div class="w">${esc([b.zone ? "Zone " + b.zone : "", b.description, b.active ? "" : "inactive"].filter(Boolean).join(" · "))}</div></div></label>`).join("") || `<p class="sub" style="padding:10px">No bins yet</p>`}</div></div>
+      <p class="sub" id="lcount" style="margin:8px 0 0"></p></div>
+    <div class="card"><h3>Label size</h3><select id="lsize">
+        <option value="sheet">21 per A4 sheet (Avery L7160)</option><option value="shelf">8 per A4 sheet (Avery L7165)</option><option value="sign">2 big signs per A4 page</option></select>
+      <div class="two"><div><label for="lcopies">Labels per bin</label><input id="lcopies" inputmode="numeric" value="1"></div>
+        <div><label for="lskip">Already used on the sheet</label><input id="lskip" inputmode="numeric" value="0"></div></div>
+      <button class="btn green" id="lmake" type="button">Make the labels (PDF)</button>
+      <div id="lout"></div>
+      <p class="sub" style="margin:8px 0 0">Each label has the bin code, a barcode (any scanner) and a QR code (phone camera). Print from the PDF, or share it to a printer app.</p></div>`;
+  const setMode = m => { lblMode = m; [...$("lseg").children].forEach(x => x.classList.toggle("on", x.dataset.m === m));
+    $("lzone").classList.toggle("hidden", m !== "zone"); $("lpick").classList.toggle("hidden", m !== "pick"); lcount(); };
+  [...$("lseg").children].forEach(x => x.onclick = () => setMode(x.dataset.m));
+  $("lfind").oninput = () => { const q = $("lfind").value.trim().toLowerCase(); [...$("lbins").querySelectorAll("label")].forEach(l => l.classList.toggle("hidden", q && !l.dataset.k.includes(q))); };
+  $("lbins").onchange = lcount; $("lz").onchange = lcount;
+  $("lmake").onclick = makeLabels;
+  setMode(lblMode);
+}
+function chosenBins() { return [...$("lbins").querySelectorAll("input:checked")].map(x => x.value); }
+function lcount() {
+  const k = lblMode === "all" ? binList.filter(b => b.active).length : lblMode === "zone" ? binList.filter(b => b.active && b.zone === $("lz").value).length : chosenBins().length;
+  $("lcount").textContent = `${k} bin${k === 1 ? "" : "s"} chosen`;
+}
+async function makeLabels() {
+  clear();
+  const body = {size: $("lsize").value, copies: $("lcopies").value, skip: $("lskip").value};
+  if (lblMode === "zone") body.zone = $("lz").value;
+  if (lblMode === "pick") { body.codes = chosenBins(); if (!body.codes.length) return say("Tick the bins to print.", true); }
+  $("lmake").disabled = true; $("lmake").textContent = "Making the labels…";
+  try {
+    const r = await fetch("/api/wh/labels", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body))});
+    if (r.status === 401) { localStorage.removeItem("inventra_wh"); token = ""; return view("login"); }
+    if (!r.ok) { let d = {}; try { d = await r.json(); } catch (e) {} throw new Error(d.error || "The labels couldn't be made. Try again."); }
+    const blob = await r.blob();
+    const name = ((r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/) || [])[1] || "Bin labels.pdf";
+    if (lblUrl) URL.revokeObjectURL(lblUrl);
+    lblUrl = URL.createObjectURL(blob);
+    const file = new File([blob], name, {type: "application/pdf"});
+    const canShare = navigator.canShare && navigator.canShare({files: [file]});
+    $("lout").innerHTML = `<a class="btn" href="${lblUrl}" target="_blank" rel="noopener" download="${esc(name)}">Open the labels to print</a>` +
+      (canShare ? `<button class="btn ghost" type="button" id="lshare">Share (printer app, e-mail, WhatsApp…)</button>` : "");
+    if (canShare) $("lshare").onclick = () => navigator.share({files: [file], title: name}).catch(() => {});
+    beep(true); say("The labels are ready.");
+  } catch (e) { beep(false); say(e.message, true); }
+  finally { $("lmake").disabled = false; $("lmake").textContent = "Make the labels (PDF)"; }
 }
 
 // ---- pick & pack ----
@@ -284,7 +415,11 @@ function paintCount() {
 }
 function cadj(sku, d) { counts[sku] = Math.max(0, (counts[sku] || 0) + d); paintCount(); }
 
-if (token && me.can) menu(); else view("login");
+if (token && me.can) {
+  menu();
+  const go = new URLSearchParams(location.search).get("open");      // the home-screen shortcuts (Scan a bin, Bin labels)
+  if (go && MODES[go] && (me.can || []).concat(EVERYONE).includes(go)) open_(go);
+} else view("login");
 </script>
 </body>
 </html>

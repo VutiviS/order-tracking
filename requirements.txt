@@ -1,1 +1,2 @@
 supabase>=2.0.0
+reportlab>=4.0
