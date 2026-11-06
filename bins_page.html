@@ -442,7 +442,10 @@ if (token) start();
 else {
   show("login");
   const b = binFromAddress();
-  if (b) say(`Sign in to see bin ${b}.`, false, true);   // (the address stays: the bin opens right after signing in)
+  // (the address stays: the bin opens right after signing in). iPhones open scanned links in Safari, which keeps its
+  // own sign-in apart from the home-screen app: once signed in here, every later scan opens straight away.
+  const iosSafari = /iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone;
+  if (b) say(`Sign in to see bin ${b}.` + (iosSafari ? " iPhone opens scanned labels in Safari: sign in here once, and every scan after that opens the bin straight away." : ""), false, true);
 }
 </script>
 </body>
