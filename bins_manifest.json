@@ -1,0 +1,23 @@
+{
+  "name": "INVENTRA Bins",
+  "short_name": "Bins",
+  "description": "Scan a bin label to see what is in the bin: binned, dispatched, available now and expiring soon. Print bin labels with barcodes.",
+  "id": "{{BASE}}/",
+  "start_url": "{{BASE}}/",
+  "scope": "{{BASE}}/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF1F6",
+  "theme_color": "#052B63",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ],
+  "shortcuts": [
+    {"name": "Scan a bin", "short_name": "Scan", "url": "{{BASE}}/?open=camera", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+    {"name": "All bins", "short_name": "Bins", "url": "{{BASE}}/?open=list", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Bin labels", "short_name": "Labels", "url": "{{BASE}}/?open=labels", "icons": [{"src": "/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

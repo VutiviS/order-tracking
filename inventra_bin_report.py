@@ -122,7 +122,7 @@ def report(tables: Dict[str, List[dict]], scanned: str, warn: Optional[int] = No
     """Everything the bin view shows for one scanned code, or None when there is no such bin."""
     today = today or date.today()
     warn = warning_days() if warn is None else warn
-    want = "".join(str(scanned or "").split()).upper()
+    want = "".join(inventra_bins.bin_code_from_scan(scanned).split()).upper()     # a label's QR link or its code
     codes = known_codes(tables)
     if not want or want not in codes:
         return None

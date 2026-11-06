@@ -712,6 +712,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path, _, query = self.path.partition("?")
+        if path == "/bins" or path.startswith("/bins/"):          # INVENTRA Bins, the phone app for storage bins
+            import bins_server
+            if path == "/bins":
+                self.send_response(301)
+                self.send_header("Location", "/bins/")
+                self.end_headers()
+                return
+            if bins_server.handle_get(self, path[len("/bins"):], "/bins"):
+                return
+            return self._send(404, {"error": "Not found"})
         if path in ("/api/gps", "/api/gps/"):
             from urllib.parse import parse_qsl
             return self._gps(dict(parse_qsl(query)))
@@ -790,6 +800,11 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {"error": "Not found"})
 
     def do_POST(self):
+        if self.path.startswith("/bins/api/"):                               # INVENTRA Bins (the phone app)
+            import bins_server
+            if not bins_server.handle_post(self, self.path.split("?", 1)[0][len("/bins"):], "/bins"):
+                self._send(404, {"error": "Not found"})
+            return
         if self.path.split("?", 1)[0] in ("/api/gps", "/api/gps/"):          # GPS devices and the Traccar Client app
             from urllib.parse import parse_qsl
             n = int(self.headers.get("Content-Length") or 0)

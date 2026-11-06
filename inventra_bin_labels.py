@@ -83,14 +83,16 @@ def _barcode(c: canvas.Canvas, value: str, x: float, y: float, width: float, hei
     bc.drawOn(c, x + max(0.0, (width - bc.width) / 2), y)
 
 
-def _label(c: canvas.Canvas, x: float, y: float, w: float, h: float, b: dict):
+def _label(c: canvas.Canvas, x: float, y: float, w: float, h: float, b: dict, link_base: str = ""):
     code = str(b.get("code") or "").strip()
     pad = h * 0.07
     gap = h * 0.04
     bar_h = h * 0.27
     qr = h - 2 * pad - bar_h - gap                       # the QR code: the square above the barcode, on the left
     top = y + h - pad
-    _qr(c, code, x + pad, top - qr, qr)
+    # the QR code opens the bins phone app on this bin (any phone camera); the barcode is the code itself (scanners)
+    from inventra_bins import bin_link
+    _qr(c, bin_link(link_base, code) if link_base else code, x + pad, top - qr, qr)
     tx = x + pad + qr + h * 0.05
     tw = x + w - pad - tx
     # a navy rule, then the bin code as large as it fits (no company name on bin labels)
@@ -122,14 +124,16 @@ def _label(c: canvas.Canvas, x: float, y: float, w: float, h: float, b: dict):
     c.setFont("Helvetica", hint)
     c.setFillColorRGB(.42, .42, .48)
     c.drawCentredString(x + w / 2, y + pad * 0.6,
-                        _cut(c, f"Scan to see what is in this bin · printed {datetime.now():%d %b %Y}", "Helvetica",
-                             hint, w - 2 * pad))
+                        _cut(c, ("Scan the QR code with a phone to open this bin" if link_base else
+                                 "Scan to see what is in this bin") + f" · printed {datetime.now():%d %b %Y}",
+                             "Helvetica", hint, w - 2 * pad))
 
 
 def bin_labels_pdf(path: str, bins: Iterable[dict], size: str = "sheet", skip: int = 0, copies: int = 1,
-                   outline: bool = False) -> str:
+                   outline: bool = False, link_base: str = "") -> str:
     """bins: [{"code", "zone", "description"}]. skip: labels already used on the first sheet (start further on).
-    copies: labels per bin. outline: draw the label edges (for plain paper)."""
+    copies: labels per bin. outline: draw the label edges (for plain paper). link_base: the bins phone app's address
+    (https://...): the QR codes then open the app on their bin; without it they hold the bin code."""
     cols, rows, lw, lh, left, top, gx, gy, _text = SIZES[size]
     n = cols * rows
     c = canvas.Canvas(path, pagesize=(PAGE_W, PAGE_H))
@@ -146,7 +150,7 @@ def bin_labels_pdf(path: str, bins: Iterable[dict], size: str = "sheet", skip: i
             c.setStrokeColorRGB(.78, .78, .8)
             c.setLineWidth(0.6)
             c.rect(x, y, lw, lh, stroke=1, fill=0)
-        _label(c, x, y, lw, lh, b)
+        _label(c, x, y, lw, lh, b, link_base)
         slot += 1
     c.save()
     return path

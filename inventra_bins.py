@@ -120,6 +120,24 @@ def contents(runs: List[dict], ledger: List[dict], stock_qty: Callable[[str], fl
     return sorted(out, key=lambda r: (r["bin"] == UNALLOCATED, r["bin"], r["sku"]))
 
 
+def bin_link(base_url: str, code: str) -> str:
+    """The address a bin label's QR code opens: the bins phone app on that bin (https://<app>/b/<code>)."""
+    from urllib.parse import quote
+    return f"{str(base_url).strip().rstrip('/')}/b/{quote(str(code).strip(), safe='')}"
+
+
+def bin_code_from_scan(text) -> str:
+    """What was scanned -> the bin code. Bin-label QR codes hold the app's link (https://<app>/b/A-01-02) and the
+    barcode under it the code itself; both give 'A-01-02'."""
+    from urllib.parse import unquote, urlparse
+    t = str(text or "").strip()
+    if "/b/" in t and ("://" in t or t.startswith("/")):
+        path = urlparse(t).path if "://" in t else t
+        part = path.split("/b/", 1)[1].split("/", 1)[0]
+        return unquote(part).strip()
+    return t
+
+
 def real_description(text) -> str:
     """A bin's description as people wrote it: Procurement's own note on bins it created when a new code was typed
     at Receive ('Auto-created for A-2') is not a description, and is not shown or printed."""

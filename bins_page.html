@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#052B63">
+<meta name="robots" content="noindex">
+<link rel="manifest" href="{{BASE}}/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bins">
+<title>INVENTRA Bins</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --navy:#052B63; --navy-2:#0A3A80; --green:#2F8F2A; --red:#B42318; --amber:#B45309; --bg:#EEF1F6; --card:#FFFFFF;
+          --ink:#0F172A; --muted:#5B6474; --line:#D9DFE8; --soft:#E8EDF4; --err-bg:#FBEAE8; --err-ink:#8A1C12;
+          --ok-bg:#EAF4E3; --ok-ink:#2F6B16; --warn-bg:#FEF3C7; --warn-ink:#92400E;
+          --font:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A0F1A; --card:#111827; --ink:#E5E9F0; --muted:#94A0B4; --line:#243044; --soft:#1A2436;
+            --err-bg:#2E1513; --err-ink:#F5A39A; --ok-bg:#15281A; --ok-ink:#93D46E; --warn-bg:#3A2A0C; --warn-ink:#FCD34D; }
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { overflow-x:hidden; overflow-x:clip; max-width:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 var(--font); min-height:100vh; }
+  button, input, select { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+  /* top bar */
+  .bar { position:sticky; top:0; z-index:5; background:var(--navy); color:#fff; padding:calc(env(safe-area-inset-top) + 10px) 14px 10px; }
+  .bar .in { max-width:640px; margin:0 auto; display:flex; align-items:center; gap:10px; }
+  .bar img { height:30px; width:30px; } .bar .t { flex:1; min-width:0; font-weight:600; font-size:17px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar button { background:transparent; border:1px solid rgba(255,255,255,.4); color:#fff; padding:6px 10px; font-size:13px; cursor:pointer; }
+  main { max-width:640px; margin:0 auto; padding:12px 12px calc(env(safe-area-inset-bottom) + 88px); }
+  .card { background:var(--card); border:1px solid var(--line); padding:14px; margin-bottom:10px; }
+  h2 { margin:0 0 4px; font-size:18px; } h3 { margin:0 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .sub { color:var(--muted); font-size:13px; margin:0; }
+  label { display:block; font-size:13px; font-weight:600; margin:12px 0 6px; }
+  input, select { width:100%; border:1px solid var(--line); background:var(--card); padding:12px; font-size:16px; border-radius:0; }
+  .btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; border:0; background:var(--navy); color:#fff;
+         font-weight:600; padding:14px; margin-top:10px; font-size:16px; cursor:pointer; text-decoration:none; }
+  .btn.big { padding:22px 14px; font-size:18px; } .btn.green { background:var(--green); }
+  .btn.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); } .btn[disabled] { opacity:.6; }
+  .scan { display:flex; gap:8px; } .scan input { flex:1; } .scan button { width:auto; margin:0; padding:0 16px; }
+  .msg { padding:10px 12px; margin:0 0 10px; font-size:14px; } .msg.err { background:var(--err-bg); color:var(--err-ink); }
+  .msg.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  /* bottom tabs */
+  nav.tabs { position:fixed; left:0; right:0; bottom:0; z-index:6; background:var(--card); border-top:1px solid var(--line);
+             padding:0 0 env(safe-area-inset-bottom); display:flex; justify-content:center; }
+  nav.tabs .in { display:flex; width:100%; max-width:640px; }
+  nav.tabs button { flex:1; background:none; border:0; padding:10px 4px 12px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; }
+  nav.tabs button svg { display:block; margin:0 auto 3px; width:24px; height:24px; }
+  nav.tabs button.on { color:var(--navy); } @media (prefers-color-scheme: dark) { nav.tabs button.on { color:#7FB2FF; } }
+  /* bin list */
+  .bin { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:12px 0; border-top:1px solid var(--line); cursor:pointer; }
+  .bin:first-child { border-top:0; } .bin b { font-size:16px; } .bin .w { font-size:12px; color:var(--muted); }
+  .bin .r { text-align:right; white-space:nowrap; } .bin .r b { font-variant-numeric:tabular-nums; }
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:1px 6px; margin-left:4px; }
+  .badge.expired { background:var(--err-bg); color:var(--err-ink); } .badge.expiring { background:var(--warn-bg); color:var(--warn-ink); }
+  .recent { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .recent button { border:1px solid var(--line); background:var(--soft); padding:8px 12px; font-weight:600; cursor:pointer; }
+  /* one bin */
+  .binhead h2 { font-size:28px; margin:0; letter-spacing:.01em; }
+  .stats { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:10px; }
+  .stat { border:1px solid var(--line); padding:8px 10px; border-top:3px solid var(--navy); min-width:0; }
+  .stat b { display:block; font-size:20px; font-variant-numeric:tabular-nums; overflow:hidden; text-overflow:ellipsis; }
+  .stat span { font-size:11px; color:var(--muted); }
+  .stat.ok { border-top-color:var(--green); } .stat.warn { border-top-color:var(--amber); } .stat.bad { border-top-color:var(--red); }
+  .prod { border-top:1px solid var(--line); padding:12px 0; } .prod:first-of-type { border-top:0; padding-top:0; }
+  .prod .top { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .prod .qty { font-weight:700; font-size:22px; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .prod .nums { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; font-size:12px; color:var(--muted); }
+  .prod .nums b { display:block; color:var(--ink); font-size:15px; font-variant-numeric:tabular-nums; }
+  .chip { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; margin-top:8px; background:var(--soft); }
+  .chip.expired { background:var(--err-bg); color:var(--err-ink); } .chip.expiring { background:var(--warn-bg); color:var(--warn-ink); }
+  .chip.ok { background:var(--ok-bg); color:var(--ok-ink); }
+  .mv { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-top:1px solid var(--line); font-size:13px; }
+  .mv:first-of-type { border-top:0; padding-top:0; } .mv .w { font-size:12px; color:var(--muted); } .mv .q { font-weight:700; white-space:nowrap; }
+  .mv .q.in { color:var(--green); }
+  /* labels */
+  .seg { display:flex; border:1px solid var(--line); } .seg button { flex:1; border:0; background:var(--card); padding:10px 6px; font-size:13px; cursor:pointer; }
+  .seg button.on { background:var(--navy); color:#fff; font-weight:600; }
+  .pick { max-height:45vh; overflow:auto; border:1px solid var(--line); margin-top:8px; }
+  .pick label { display:flex; gap:10px; align-items:center; margin:0; padding:10px; border-top:1px solid var(--line); font-weight:400; }
+  .pick label:first-child { border-top:0; } .pick input { width:auto; } .pick .w { font-size:12px; color:var(--muted); }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  /* camera */
+  #cam { position:fixed; inset:0; background:#000; z-index:50; display:flex; flex-direction:column; }
+  #cam video { flex:1; width:100%; object-fit:cover; }
+  #cam .frame { position:absolute; left:10%; right:10%; top:30%; height:28%; border:3px solid #5DB032; box-shadow:0 0 0 2000px rgba(0,0,0,.35); }
+  #cam .hint { color:#fff; text-align:center; padding:12px; } #cam .btn { margin:0 12px calc(env(safe-area-inset-bottom) + 12px); width:auto; }
+  .install { display:flex; gap:10px; align-items:center; }
+  .install p { flex:1; margin:0; font-size:13px; } .install .btn { width:auto; margin:0; padding:10px 14px; font-size:14px; }
+</style>
+</head>
+<body>
+<header class="bar"><div class="in">
+  <img src="/favicon.svg" alt="">
+  <div class="t" id="title">INVENTRA Bins</div>
+  <button id="out" class="hidden" type="button">Sign out</button>
+</div></header>
+<main>
+  <div class="msg ok hidden" id="ok"></div>
+  <div class="msg err hidden" id="err"></div>
+
+  <section id="v-login" class="card hidden">
+    <h2>Sign in</h2>
+    <p class="sub">Your INVENTRA username and password.</p>
+    <label for="u">Username</label><input id="u" autocomplete="username" autocapitalize="off" spellcheck="false">
+    <label for="p">Password</label><input id="p" type="password" autocomplete="current-password">
+    <button class="btn" id="go" type="button">Sign in</button>
+  </section>
+
+  <section id="v-scan" class="hidden">
+    <div class="card">
+      <h3>Scan a bin</h3>
+      <button class="btn big" type="button" id="camGo">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>
+        Scan a bin label</button>
+      <label for="code">Or type the bin code (a USB / Bluetooth scanner types it here)</label>
+      <div class="scan"><input id="code" placeholder="e.g. A-01-02" autocomplete="off" autocapitalize="characters" enterkeyhint="go" spellcheck="false">
+        <button class="btn" type="button" id="codeGo">Show</button></div>
+      <div id="recentBox" class="hidden"><label>Recently scanned</label><div class="recent" id="recent"></div></div>
+    </div>
+    <div class="card hidden" id="installCard"><div class="install"><p id="installText">Install INVENTRA Bins on this phone: it opens like an app.</p>
+      <button class="btn" type="button" id="installGo">Install</button></div></div>
+  </section>
+
+  <section id="v-bin" class="hidden"></section>
+
+  <section id="v-list" class="hidden">
+    <div class="card"><div class="scan"><input id="find" placeholder="Find a bin, zone or description" autocomplete="off" spellcheck="false">
+      <button class="btn ghost" type="button" id="reload">Refresh</button></div>
+      <p class="sub" id="listNote" style="margin-top:8px"></p></div>
+    <div class="card" id="list">Loading…</div>
+  </section>
+
+  <section id="v-labels" class="hidden"></section>
+</main>
+
+<nav class="tabs hidden" id="tabs"><div class="in">
+  <button type="button" data-v="scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg>Scan</button>
+  <button type="button" data-v="list"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="6"/><rect x="3" y="14" width="18" height="6"/><path d="M7 7h2M7 17h2"/></svg>Bins</button>
+  <button type="button" data-v="labels" id="tabLabels"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8"/><path d="M6 14h12v7H6z"/></svg>Labels</button>
+</div></nav>
+
+<div id="cam" class="hidden"><video id="video" playsinline muted></video><div class="frame"></div>
+  <div class="hint">Point at the barcode or the QR code on the bin label</div>
+  <button class="btn ghost" id="camClose" type="button" style="color:#fff;border-color:#fff">Close camera</button></div>
+
+<script>
+const BASE = "{{BASE}}";        // "" on its own website, "/bins" inside the order tracking website
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtN = v => (Math.round((+v || 0) * 100) / 100).toLocaleString();
+let token = "", me = {};
+try { token = localStorage.getItem("inventra_bins") || ""; me = JSON.parse(localStorage.getItem("inventra_bins_me") || "{}"); } catch (e) {}
+const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+
+function say(t, bad, keep) { const m = $(bad ? "err" : "ok"); $(bad ? "ok" : "err").classList.add("hidden"); m.textContent = t; m.classList.remove("hidden");
+  if (!bad && !keep) setTimeout(() => m.classList.add("hidden"), 4000); window.scrollTo(0, 0); }
+function clear() { $("ok").classList.add("hidden"); $("err").classList.add("hidden"); }
+function beep(ok) { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.frequency.value = ok ? 880 : 220;
+  o.connect(a.destination); o.start(); setTimeout(() => { o.stop(); a.close(); }, ok ? 90 : 300); } catch (e) {} if (navigator.vibrate) navigator.vibrate(ok ? 40 : [80, 60, 80]); }
+
+const VIEWS = ["login", "scan", "bin", "list", "labels"];
+let current = "";
+function show(v, title) {
+  current = v; clear();
+  VIEWS.forEach(x => $("v-" + x).classList.toggle("hidden", x !== v));
+  $("tabs").classList.toggle("hidden", v === "login");
+  $("out").classList.toggle("hidden", v === "login");
+  const tab = v === "bin" ? "scan" : v;
+  [...$("tabs").querySelectorAll("button")].forEach(b => b.classList.toggle("on", b.dataset.v === tab));
+  $("title").textContent = title || {scan: "Scan a bin", list: "All bins", labels: "Bin labels", login: "INVENTRA Bins"}[v] || "INVENTRA Bins";
+  window.scrollTo(0, 0);
+}
+
+async function api(path, body) {
+  const r = await fetch(BASE + "/api/" + path, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(Object.assign({token}, body || {}))});
+  if (r.status === 401) { signOut(); throw new Error("Please sign in again."); }
+  if (path === "labels" && r.ok) return r;
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(d.error || "No connection. Check the phone's internet and try again.");
+  return d;
+}
+
+// ---- signing in ----
+$("go").onclick = async () => {
+  clear(); $("go").disabled = true;
+  try { const d = await api("login", {username: $("u").value, password: $("p").value});
+        token = d.token; me = {name: d.name, labels: d.labels}; store("inventra_bins", token); store("inventra_bins_me", JSON.stringify(me));
+        $("p").value = ""; start(); }
+  catch (e) { say(e.message, true); }
+  finally { $("go").disabled = false; }
+};
+$("p").onkeydown = e => { if (e.key === "Enter") $("go").click(); };
+function signOut() { token = ""; me = {}; store("inventra_bins", null); store("inventra_bins_me", null); show("login"); }
+$("out").onclick = signOut;
+[...$("tabs").querySelectorAll("button")].forEach(b => b.onclick = () => ({scan: scanView, list: listView, labels: labelsView})[b.dataset.v]());
+
+// a bin label's QR code opens https://<this app>/b/<bin code>: that bin straight away (after signing in if needed)
+function binFromAddress() {
+  const m = location.pathname.slice(BASE.length).match(/^\/b\/([^/]+)/);
+  if (!m) return "";
+  try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+}
+function codeFromScan(text) {                    // the QR's link or the barcode's code -> the bin code
+  const t = String(text || "").trim();
+  const m = t.match(/\/b\/([^/?#]+)/);
+  if (m && (t.includes("://") || t.startsWith("/"))) { try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; } }
+  return t;
+}
+function start() {
+  $("tabLabels").classList.toggle("hidden", !me.labels);
+  const fromQr = binFromAddress();
+  if (fromQr) { history.replaceState(null, "", BASE + "/"); scanView(); return openBin(fromQr); }
+  const go = new URLSearchParams(location.search).get("open");
+  if (go === "list") return listView();
+  if (go === "labels" && me.labels) return labelsView();
+  scanView(go === "camera");
+}
+
+// ---- scanning: the camera, or a box (typing / USB / Bluetooth scanner) ----
+let stream = null, zx = null, onCode = null;
+async function camera(fn) {
+  onCode = fn;
+  $("cam").classList.remove("hidden");
+  const video = $("video");
+  try {
+    if ("BarcodeDetector" in window) {
+      stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+      video.srcObject = stream; await video.play();
+      const det = new BarcodeDetector();
+      const tick = async () => {
+        if ($("cam").classList.contains("hidden")) return;
+        try { const f = await det.detect(video); if (f.length) { const v = f[0].rawValue; closeCam(); onCode && onCode(v); return; } } catch (e) {}
+        requestAnimationFrame(tick);
+      };
+      tick();
+    } else {
+      if (!window.ZXingBrowser) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js";
+        s.integrity = "sha384-ylLhng89kD62+PVK1cjm4rAYg69zDlGrbbSfAE2Eb8Xqf8RoAQCMcRoUXZh7pAPC"; s.crossOrigin = "anonymous"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+      zx = new ZXingBrowser.BrowserMultiFormatReader();
+      zx.decodeFromVideoDevice(undefined, video, res => { if (res) { closeCam(); onCode && onCode(res.getText()); } });
+    }
+  } catch (e) { closeCam(); say("The camera can't be used here (allow camera access for this site), or type the bin code.", true); }
+}
+function closeCam() { $("cam").classList.add("hidden"); if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (zx) { try { ZXingBrowser.BrowserMultiFormatReader.releaseAllStreams(); } catch (e) {} zx = null; } }
+$("camClose").onclick = closeCam;
+
+function recent() { try { return JSON.parse(localStorage.getItem("inventra_bins_recent") || "[]"); } catch (e) { return []; } }
+function remember(code) { const r = [code].concat(recent().filter(c => c !== code)).slice(0, 8); store("inventra_bins_recent", JSON.stringify(r)); }
+function scanView(withCamera) {
+  show("scan");
+  const r = recent();
+  $("recentBox").classList.toggle("hidden", !r.length);
+  $("recent").innerHTML = r.map(c => `<button type="button" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+  [...$("recent").children].forEach(b => b.onclick = () => openBin(b.dataset.c));
+  if (withCamera) camera(openBin);
+}
+$("camGo").onclick = () => camera(openBin);
+$("codeGo").onclick = () => { const v = $("code").value.trim(); if (v) { $("code").value = ""; openBin(v); } };
+$("code").onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); $("codeGo").click(); } };
+
+// ---- one bin: what is in it - binned, dispatched, available now, expiring soon - and its movements ----
+async function openBin(code) {
+  code = codeFromScan(code); if (!code) return;
+  clear();
+  try { const d = await api("bin", {code}); beep(true); remember(d.bin.code); paintBin(d); }
+  catch (e) { beep(false); say(e.message, true); }
+}
+function fmtDate(iso) { if (!iso) return ""; const d = new Date(iso + "T00:00:00"); return isNaN(d) ? iso : d.toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"}); }
+function expiryText(p) {
+  if (!p.expiry) return p.available > 0 ? "No expiry date recorded" : "";
+  let t = "Expires " + fmtDate(p.expiry);
+  if (p.expiry_days != null && p.available > 0) t += p.expiry_days < 0 ? ` (${-p.expiry_days} days ago)` : p.expiry_days === 0 ? " (today)" : ` (in ${p.expiry_days} days)`;
+  return t + (p.expiry_source === "product" ? " · the product's earliest date" : "");
+}
+function paintBin(d) {
+  const b = d.bin, t = d.totals;
+  const about = [b.zone ? "Zone " + b.zone : "", b.description || "", b.active ? "" : "Inactive bin"].filter(Boolean).join(" · ");
+  const prods = d.products.map(p => `<div class="prod"><div class="top"><div><b>${esc(p.description)}</b><div class="sub">${esc(p.sku)}</div></div>
+      <div style="text-align:right"><div class="qty">${fmtN(p.available)}</div><div class="sub">available now</div></div></div>
+      <div class="nums"><div><b>${fmtN(p.binned)}</b>binned</div><div><b>${fmtN(p.moved_out)}</b>moved out</div><div><b>${fmtN(p.dispatched)}</b>dispatched</div></div>
+      ${p.available > 0 ? `<span class="chip ${esc(p.status)}">${esc(p.status_text)}${p.expired_qty ? " · " + fmtN(p.expired_qty) + " expired" : ""}${p.expiring_qty ? " · " + fmtN(p.expiring_qty) + " expiring soon" : ""}</span>`
+                        : `<span class="chip">Nothing left in this bin</span>`}
+      ${expiryText(p) ? `<div class="sub" style="margin-top:4px">${esc(expiryText(p))}</div>` : ""}</div>`).join("");
+  const moves = d.history.slice(0, 80).map(h => `<div class="mv"><div><b>${esc(h.movement)}</b> · ${esc(h.description)}
+      <div class="w">${esc(h.when || "—")}${h.detail ? " · " + esc(h.detail) : ""}</div></div>
+      <span class="q ${h.qty > 0 ? "in" : ""}">${h.qty > 0 ? "+" : "−"}${fmtN(Math.abs(h.qty))}</span></div>`).join("");
+  $("v-bin").innerHTML = `<div class="card"><h3>Bin</h3><div class="binhead"><h2>${esc(b.code)}</h2></div>${about ? `<p class="sub" style="margin-top:2px">${esc(about)}</p>` : ""}
+      <div class="stats">
+        <div class="stat ok"><b>${fmtN(t.available)}</b><span>available now</span></div>
+        <div class="stat"><b>${fmtN(t.products)}</b><span>products</span></div>
+        <div class="stat"><b>${fmtN(t.binned)}</b><span>binned</span></div>
+        <div class="stat"><b>${fmtN(t.dispatched)}</b><span>dispatched</span></div>
+        <div class="stat warn"><b>${fmtN(t.expiring)}</b><span>expiring ≤ ${d.warn_days} days</span></div>
+        <div class="stat bad"><b>${fmtN(t.expired)}</b><span>expired</span></div></div>
+      <p class="sub" style="margin-top:8px">As of ${esc(d.as_of)}</p>
+      <button class="btn" type="button" id="nextScan">Scan the next bin</button></div>
+    <div class="card"><h3>In this bin</h3>${prods || `<p class="sub">Nothing has been put in this bin yet</p>`}</div>
+    <div class="card"><h3>Movements</h3>${moves || `<p class="sub">No movements recorded</p>`}
+      <p class="sub" style="margin-top:8px">Dispatched = units that left the warehouse from this bin (the oldest stock leaves first).</p></div>
+    ${me.labels ? `<button class="btn ghost" type="button" id="oneLabel">Print this bin's label</button>` : ""}`;
+  show("bin", "Bin " + b.code);
+  $("nextScan").onclick = () => camera(openBin);
+  if ($("oneLabel")) $("oneLabel").onclick = () => labelsView([b.code]);
+}
+
+// ---- every bin ----
+let allBins = [];
+async function listView(fresh) {
+  show("list");
+  $("list").textContent = "Loading…";
+  try { const d = await api("bins", {fresh: !!fresh}); allBins = d.bins || [];
+        $("listNote").textContent = `${allBins.length} bin${allBins.length === 1 ? "" : "s"} · expiring = within ${d.warn_days} days`; paintList(); }
+  catch (e) { $("list").textContent = ""; say(e.message, true); }
+}
+function paintList() {
+  const q = $("find").value.trim().toLowerCase();
+  const rows = allBins.filter(b => !q || (b.code + " " + b.zone + " " + b.description).toLowerCase().includes(q));
+  $("list").innerHTML = rows.length ? rows.map(b => `<div class="bin" data-c="${esc(b.code)}"><div><b>${esc(b.code)}</b>
+      <div class="w">${esc([b.zone ? "Zone " + b.zone : "", b.description, b.active ? "" : "inactive"].filter(Boolean).join(" · ") || "—")}</div></div>
+      <div class="r"><b>${fmtN(b.available)}</b> <span class="w">units</span><div class="w">${b.products} product${b.products === 1 ? "" : "s"}${b.expired ? `<span class="badge expired">${fmtN(b.expired)} expired</span>` : ""}${b.expiring ? `<span class="badge expiring">${fmtN(b.expiring)} expiring</span>` : ""}</div></div></div>`).join("")
+    : `<p class="sub">${allBins.length ? "No bin matches" : "No bins yet: add them in INVENTRA (Stock Control > Storage bins)"}</p>`;
+  [...$("list").querySelectorAll(".bin")].forEach(x => x.onclick = () => openBin(x.dataset.c));
+}
+$("find").oninput = paintList;
+$("reload").onclick = () => listView(true);
+
+// ---- bin labels: the bin code, a barcode and a QR code, as a PDF to print or share ----
+let lblMode = "all", lblUrl = "";
+async function labelsView(only) {
+  if (!me.labels) return scanView();
+  show("labels");
+  $("v-labels").innerHTML = `<div class="card">Loading the bins…</div>`;
+  try { if (!allBins.length) allBins = (await api("bins")).bins || []; } catch (e) { return say(e.message, true); }
+  const zones = [...new Set(allBins.map(b => b.zone).filter(Boolean))].sort();
+  lblMode = only ? "pick" : "all";
+  $("v-labels").innerHTML = `<div class="card"><h3>Which bins</h3>
+      <div class="seg" id="lseg"><button type="button" data-m="all">All bins</button><button type="button" data-m="zone">A zone</button><button type="button" data-m="pick">Choose</button></div>
+      <div id="lzone" class="hidden"><label for="lz">Zone</label><select id="lz">${zones.length ? zones.map(z => `<option>${esc(z)}</option>`).join("") : `<option value="">No zones yet</option>`}</select></div>
+      <div id="lpick" class="hidden"><input id="lfind" placeholder="Find a bin" style="margin-top:10px" autocomplete="off">
+        <div class="pick" id="lbins">${allBins.map(b => `<label data-k="${esc((b.code + " " + b.zone + " " + b.description).toLowerCase())}"><input type="checkbox" value="${esc(b.code)}" ${only && only.includes(b.code) ? "checked" : ""}>
+          <div><b>${esc(b.code)}</b><div class="w">${esc([b.zone ? "Zone " + b.zone : "", b.description, b.active ? "" : "inactive"].filter(Boolean).join(" · "))}</div></div></label>`).join("") || `<p class="sub" style="padding:10px">No bins yet</p>`}</div></div>
+      <p class="sub" id="lcount" style="margin-top:8px"></p></div>
+    <div class="card"><h3>Label size</h3><select id="lsize">
+        <option value="sheet">21 per A4 sheet (Avery L7160)</option><option value="shelf">8 per A4 sheet (Avery L7165)</option><option value="sign">2 big signs per A4 page</option></select>
+      <div class="two"><div><label for="lcopies">Labels per bin</label><input id="lcopies" inputmode="numeric" value="1"></div>
+        <div><label for="lskip">Already used on the sheet</label><input id="lskip" inputmode="numeric" value="0"></div></div>
+      <button class="btn green" id="lmake" type="button">Make the labels (PDF)</button>
+      <div id="lout"></div>
+      <p class="sub" style="margin-top:8px">Each label has the bin code, a barcode (any scanner) and a QR code (phone camera). Print from the PDF, or share it to a printer app.</p></div>`;
+  const setMode = m => { lblMode = m; [...$("lseg").children].forEach(x => x.classList.toggle("on", x.dataset.m === m));
+    $("lzone").classList.toggle("hidden", m !== "zone"); $("lpick").classList.toggle("hidden", m !== "pick"); lcount(); };
+  [...$("lseg").children].forEach(x => x.onclick = () => setMode(x.dataset.m));
+  $("lfind").oninput = () => { const q = $("lfind").value.trim().toLowerCase(); [...$("lbins").querySelectorAll("label")].forEach(l => l.classList.toggle("hidden", !!q && !l.dataset.k.includes(q))); };
+  $("lbins").onchange = lcount; $("lz").onchange = lcount;
+  $("lmake").onclick = makeLabels;
+  setMode(lblMode);
+}
+function chosenBins() { return [...$("lbins").querySelectorAll("input:checked")].map(x => x.value); }
+function lcount() {
+  const k = lblMode === "all" ? allBins.filter(b => b.active).length : lblMode === "zone" ? allBins.filter(b => b.active && b.zone === $("lz").value).length : chosenBins().length;
+  $("lcount").textContent = `${k} bin${k === 1 ? "" : "s"} chosen`;
+}
+async function makeLabels() {
+  clear();
+  const body = {size: $("lsize").value, copies: $("lcopies").value, skip: $("lskip").value};
+  if (lblMode === "zone") body.zone = $("lz").value;
+  if (lblMode === "pick") { body.codes = chosenBins(); if (!body.codes.length) return say("Tick the bins to print.", true); }
+  $("lmake").disabled = true; $("lmake").textContent = "Making the labels…";
+  try {
+    const r = await api("labels", body);
+    const blob = await r.blob();
+    const name = ((r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/) || [])[1] || "Bin labels.pdf";
+    if (lblUrl) URL.revokeObjectURL(lblUrl);
+    lblUrl = URL.createObjectURL(blob);
+    const file = new File([blob], name, {type: "application/pdf"});
+    const canShare = !!(navigator.canShare && navigator.canShare({files: [file]}));
+    $("lout").innerHTML = `<a class="btn" href="${lblUrl}" target="_blank" rel="noopener" download="${esc(name)}">Open the labels to print</a>` +
+      (canShare ? `<button class="btn ghost" type="button" id="lshare">Share (printer app, e-mail, WhatsApp…)</button>` : "");
+    if (canShare) $("lshare").onclick = () => navigator.share({files: [file], title: name}).catch(() => {});
+    beep(true); say("The labels are ready.");
+  } catch (e) { beep(false); say(e.message, true); }
+  finally { $("lmake").disabled = false; $("lmake").textContent = "Make the labels (PDF)"; }
+}
+
+// ---- install on the phone (Android: a button; iPhone: Share > Add to Home Screen) ----
+let installEvt = null;
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if (!standalone) $("installCard").classList.remove("hidden"); });
+$("installGo").onclick = async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; $("installCard").classList.add("hidden"); };
+if (!standalone && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  $("installText").textContent = "Install on this iPhone: tap Share, then “Add to Home Screen”.";
+  $("installGo").classList.add("hidden"); $("installCard").classList.remove("hidden");
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.register(BASE + "/sw.js", {scope: BASE + "/"}).catch(() => {});
+
+if (token) start();
+else {
+  show("login");
+  const b = binFromAddress();
+  if (b) say(`Sign in to see bin ${b}.`, false, true);   // (the address stays: the bin opens right after signing in)
+}
+</script>
+</body>
+</html>

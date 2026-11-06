@@ -151,7 +151,7 @@ class Warehouse:
 
     def _identify(self, code: str, products: dict, holdings: dict) -> dict:
         """What a scanned code is: a product (SKU or its barcode/identifier), a serial number or a bin."""
-        c = str(code or "").strip()
+        c = inventra_bins.bin_code_from_scan(code)          # a bin label's QR holds the bins app's link to the bin
         if not c:
             raise WarehouseError("Nothing scanned.")
         up = c.upper()
@@ -234,7 +234,8 @@ class Warehouse:
         out = io.BytesIO()
         inventra_bin_labels.bin_labels_pdf(out, [{"code": b["bin_code"], "zone": b.get("zone") or "",
                                                   "description": b.get("description") or ""} for b in chosen],
-                                           size, skip=skip if size != "sign" else 0, copies=copies)
+                                           size, skip=skip if size != "sign" else 0, copies=copies,
+                                           link_base=(os.environ.get("BINS_APP_URL") or "").strip())   # QR -> bins app
         name = chosen[0]["bin_code"] if len(chosen) == 1 else f"{len(chosen)} bins"
         return out.getvalue(), f"Bin labels {name}.pdf".replace("/", "-")
 
