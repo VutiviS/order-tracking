@@ -68,7 +68,9 @@ def _wrap(c: canvas.Canvas, text: str, font: str, size: float, width: float, lin
 
 
 def _qr(c: canvas.Canvas, value: str, x: float, y: float, size: float):
-    w = QrCodeWidget(value, barLevel="M", barBorder=1)
+    # a white border of 4 squares all round (the QR standard): phone camera apps - the iPhone's especially - often
+    # don't read a QR code that sits closer than that to other print
+    w = QrCodeWidget(value, barLevel="M", barBorder=4)
     x0, y0, x1, y1 = w.getBounds()
     d = Drawing(size, size, transform=[size / (x1 - x0), 0, 0, size / (y1 - y0), 0, 0])
     d.add(w)
@@ -76,9 +78,10 @@ def _qr(c: canvas.Canvas, value: str, x: float, y: float, size: float):
 
 
 def _barcode(c: canvas.Canvas, value: str, x: float, y: float, width: float, height: float):
-    """Code 128 across `width` (bars no thinner than 0.25 mm, so every scanner reads it), centred."""
+    """Code 128 across `width` (bars no thinner than 0.25 mm, so every scanner reads it), centred, with the blank margin
+    of 10 bar widths at each end that scanners need to find where the code starts and stops."""
     probe = code128.Code128(value, barWidth=1, barHeight=height, quiet=0, humanReadable=False)
-    bar = max(0.25 * mm, min(1.2 * mm, width / max(1.0, probe.width)))
+    bar = max(0.25 * mm, min(1.2 * mm, width / (max(1.0, probe.width) + 20)))
     bc = code128.Code128(value, barWidth=bar, barHeight=height, quiet=0, humanReadable=False)
     bc.drawOn(c, x + max(0.0, (width - bc.width) / 2), y)
 
@@ -124,8 +127,8 @@ def _label(c: canvas.Canvas, x: float, y: float, w: float, h: float, b: dict, li
     c.setFont("Helvetica", hint)
     c.setFillColorRGB(.42, .42, .48)
     c.drawCentredString(x + w / 2, y + pad * 0.6,
-                        _cut(c, ("Scan the QR code with a phone to open this bin" if link_base else
-                                 "Scan to see what is in this bin") + f" · printed {datetime.now():%d %b %Y}",
+                        _cut(c, ("Scan the QR with a phone camera" if link_base else
+                                 "Scan to see what is in this bin") + f" · {datetime.now():%d %b %Y}",
                              "Helvetica", hint, w - 2 * pad))
 
 

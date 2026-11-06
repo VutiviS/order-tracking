@@ -227,33 +227,67 @@ function start() {
 }
 
 // ---- scanning: the camera, or a box (typing / USB / Bluetooth scanner) ----
-let stream = null, zx = null, onCode = null;
+let stream = null, zxCtl = null, onCode = null, scanning = false;
+const ZXING_SRC = "https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js";
+const ZXING_SRI = "sha384-ylLhng89kD62+PVK1cjm4rAYg69zDlGrbbSfAE2Eb8Xqf8RoAQCMcRoUXZh7pAPC";
+function loadZxing() {
+  if (window.ZXingBrowser) return Promise.resolve();
+  return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = ZXING_SRC; s.integrity = ZXING_SRI;
+    s.crossOrigin = "anonymous"; s.onload = ok; s.onerror = () => bad(new Error("scanner")); document.head.appendChild(s); });
+}
+function found(text) { if (!scanning) return; closeCam(); onCode && onCode(text); }
 async function camera(fn) {
-  onCode = fn;
+  onCode = fn; scanning = true;
   $("cam").classList.remove("hidden");
   const video = $("video");
+  video.setAttribute("playsinline", ""); video.setAttribute("muted", ""); video.muted = true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    closeCam(); return say(location.protocol !== "https:" ? "The camera only works on the https:// address of the app." :
+      "This browser can't use the camera: open the app in Chrome (Android) or Safari (iPhone), or type the bin code.", true);
+  }
   try {
-    if ("BarcodeDetector" in window) {
-      stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+    // the BACK camera, sharp enough for a small label (asked straight away, while the tap still counts on iPhone)
+    stream = await navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: "environment"},
+      width: {ideal: 1920}, height: {ideal: 1080}}});
+    const track = stream.getVideoTracks()[0];
+    try { await track.applyConstraints({advanced: [{focusMode: "continuous"}]}); } catch (e) {}   // (where the phone allows)
+    // Android's own reader when it really reads QR codes; otherwise (iPhone, some Android phones) the ZXing reader
+    let formats = [];
+    if ("BarcodeDetector" in window) { try { formats = await BarcodeDetector.getSupportedFormats(); } catch (e) {} }
+    if (formats.includes("qr_code")) {
       video.srcObject = stream; await video.play();
-      const det = new BarcodeDetector();
+      const det = new BarcodeDetector({formats: ["qr_code", "code_128", "code_39", "ean_13", "ean_8", "upc_a", "data_matrix"].filter(x => formats.includes(x))});
       const tick = async () => {
-        if ($("cam").classList.contains("hidden")) return;
-        try { const f = await det.detect(video); if (f.length) { const v = f[0].rawValue; closeCam(); onCode && onCode(v); return; } } catch (e) {}
-        requestAnimationFrame(tick);
+        if (!scanning) return;
+        if (video.readyState >= 2) { try { const f = await det.detect(video); if (f.length && f[0].rawValue) return found(f[0].rawValue); } catch (e) {} }
+        setTimeout(tick, 120);
       };
       tick();
     } else {
-      if (!window.ZXingBrowser) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js";
-        s.integrity = "sha384-ylLhng89kD62+PVK1cjm4rAYg69zDlGrbbSfAE2Eb8Xqf8RoAQCMcRoUXZh7pAPC"; s.crossOrigin = "anonymous"; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
-      zx = new ZXingBrowser.BrowserMultiFormatReader();
-      zx.decodeFromVideoDevice(undefined, video, res => { if (res) { closeCam(); onCode && onCode(res.getText()); } });
+      await loadZxing();
+      if (!scanning) return;
+      const reader = new ZXingBrowser.BrowserMultiFormatReader();
+      zxCtl = await reader.decodeFromStream(stream, video, res => { if (res) found(res.getText()); });
     }
-  } catch (e) { closeCam(); say("The camera can't be used here (allow camera access for this site), or type the bin code.", true); }
+  } catch (e) {
+    closeCam();
+    const n = (e && e.name) || "";
+    if (n === "NotAllowedError" || n === "SecurityError")
+      say(/iphone|ipad|ipod/i.test(navigator.userAgent)
+        ? "Camera blocked. iPhone: Settings > Safari > Camera > Allow (or tap 'aA' in the address bar > Website Settings > Camera), then try again."
+        : "Camera blocked. Tap the lock next to the address > Permissions > Camera > Allow, then try again.", true);
+    else if (n === "NotFoundError" || n === "OverconstrainedError") say("No camera found on this device. Type the bin code instead.", true);
+    else if (e && e.message === "scanner") say("The scanner couldn't load (check the internet connection), or type the bin code.", true);
+    else say("The camera can't be used right now. Close other apps using the camera, or type the bin code.", true);
+  }
 }
-function closeCam() { $("cam").classList.add("hidden"); if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-  if (zx) { try { ZXingBrowser.BrowserMultiFormatReader.releaseAllStreams(); } catch (e) {} zx = null; } }
-$("camClose").onclick = closeCam;
+function closeCam() {
+  scanning = false;
+  $("cam").classList.add("hidden");
+  if (zxCtl) { try { zxCtl.stop(); } catch (e) {} zxCtl = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  const v = $("video"); try { v.pause(); v.srcObject = null; } catch (e) {}
+}$("camClose").onclick = closeCam;
 
 function recent() { try { return JSON.parse(localStorage.getItem("inventra_bins_recent") || "[]"); } catch (e) { return []; } }
 function remember(code) { const r = [code].concat(recent().filter(c => c !== code)).slice(0, 8); store("inventra_bins_recent", JSON.stringify(r)); }
