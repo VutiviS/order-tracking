@@ -7,7 +7,12 @@
     the same labels as the desktop).
   * Every bin: the list, with what each one holds, to open or label.
 
-Staff sign in with their INVENTRA username and password (app_users). The app only reads: it never changes stock.
+  * Check a bin: "This bin is 100% correct", or what is different (counts, missing serial numbers, anything else
+    found) - saved for Stock Control (table bin_checks), and the list of the inaccurate bins to print, with or without
+    the quantities and serial numbers (inventra_bin_checks).
+
+Staff sign in with their INVENTRA username and password (app_users). The app never changes stock: a bin check is only
+a record of what was found.
 
     python bins_server.py            (PORT, default 8780)
 
@@ -48,7 +53,8 @@ for _name, _value in (("SUPABASE_URL", DEFAULT_SUPABASE_URL), ("SUPABASE_KEY", D
         os.environ[_name] = os.environ[_name].strip().strip('"').strip("'")
 ACCESS_KEY = (os.environ.get("INVENTRA_ACCESS_KEY") or "").strip()
 
-import inventra_bin_labels  # noqa: E402  (copies of the desktop's files: sync_web_files.py)
+import inventra_bin_checks  # noqa: E402  (copies of the desktop's files: sync_web_files.py)
+import inventra_bin_labels  # noqa: E402
 import inventra_bin_report  # noqa: E402
 import inventra_bins  # noqa: E402
 
@@ -204,12 +210,77 @@ class Bins:
         code = inventra_bins.bin_code_from_scan(body.get("code"))           # a QR link or the code itself
         if not code:
             raise BinsError("Scan a bin label.")
-        r = inventra_bin_report.report(self.tables(), code)
+        t = self.tables()
+        r = inventra_bin_report.report(t, code)
         if r is None:                                       # a bin made a moment ago: read again
-            r = inventra_bin_report.report(self.tables(fresh=True), code)
+            t = self.tables(fresh=True)
+            r = inventra_bin_report.report(t, code)
         if r is None:
             raise BinsError(f"There is no bin {code.upper()}. Check the label.", 404)
+        exp = inventra_bin_checks.expected(t, r["bin"]["code"])
+        r["check"] = exp["lines"] if exp else []             # what a check compares with (with the serials)
+        last = [c for c in self._checks() if str(c.get("bin_code") or "").upper() == r["bin"]["code"].upper()]
+        if last:
+            c = max(last, key=lambda c: str(c.get("checked_at") or ""))
+            r["last_check"] = {"result": c.get("result"), "when": str(c.get("checked_at") or "")[:16].replace("T", " "),
+                               "by": c.get("checked_by_name") or c.get("checked_by"), "status": c.get("status"),
+                               "summary": inventra_bin_checks.summary(c) if c.get("result") != "accurate" else ""}
         return r
+
+    # ---- checking a bin ----
+    def _checks(self) -> list:
+        try:
+            return self.db.table(inventra_bin_checks.TABLE).select("*").execute().data or []
+        except Exception:
+            return []                                       # (the table isn't there until "Fix database access")
+
+    def save_check(self, body: dict) -> dict:
+        """'This bin is 100% correct' (all_correct) or what is different (counts {sku: {counted, found_serials,
+        extra_serials}}, extra, note). Only a record: stock is never changed here."""
+        u = self.who(body.get("token"), need_labels=True)
+        code = inventra_bins.bin_code_from_scan(body.get("code"))
+        exp = inventra_bin_checks.expected(self.tables(fresh=True), code)
+        if exp is None:
+            raise BinsError(f"There is no bin {str(code).upper()}.", 404)
+        counts = body.get("counts") if isinstance(body.get("counts"), dict) else {}
+        try:
+            row = inventra_bin_checks.make_check(exp, counts, u["username"], u.get("full_name") or u["username"],
+                                                 note=body.get("note"), all_correct=bool(body.get("all_correct")),
+                                                 extra=body.get("extra"))
+        except ValueError as e:
+            raise BinsError(str(e))
+        try:
+            self.db.table(inventra_bin_checks.TABLE).insert(row).execute()
+        except Exception as e:
+            low = str(e).lower()
+            if "pgrst205" in low or "42p01" in low or "could not find the table" in low:
+                raise BinsError("Bin checks can't be saved yet: ask your administrator to run the database update "
+                                "(INVENTRA > Settings > Fix database access).", 503)
+            raise
+        ok = row["result"] == inventra_bin_checks.ACCURATE
+        return {"ok": True, "result": row["result"],
+                "message": f"Bin {row['bin_code']}: marked 100% correct." if ok else
+                           f"Bin {row['bin_code']}: discrepancy reported ({inventra_bin_checks.summary(row)}). "
+                           "Stock Control sees it under Bin checks."}
+
+    def inaccurate(self, body: dict) -> dict:
+        self.who(body.get("token"))
+        rows = inventra_bin_checks.inaccurate(self._checks())
+        return {"bins": [{"code": c.get("bin_code"), "when": str(c.get("checked_at") or "")[:16].replace("T", " "),
+                          "by": c.get("checked_by_name") or c.get("checked_by"), "summary": inventra_bin_checks.summary(c),
+                          "note": c.get("note") or ""} for c in rows]}
+
+    def inaccurate_pdf(self, body: dict):
+        """-> (pdf bytes, file name): the inaccurate bins, with quantities and serials (detailed) or without them."""
+        self.who(body.get("token"))
+        rows = inventra_bin_checks.inaccurate(self._checks())
+        t = self.tables()
+        zones = {str(b["bin_code"]).upper(): b.get("zone") or ""
+                 for b in inventra_bins.merge_bin_lists(t.get("stock_bins", []), t.get("bins", []))}
+        detailed = bool(body.get("detailed", True))
+        data = inventra_bin_checks.report_pdf(rows, detailed=detailed, zones=zones,
+                                              company=os.environ.get("COMPANY_NAME", ""))
+        return data, ("Inaccurate bins.pdf" if detailed else "Inaccurate bins - recount sheet.pdf")
 
     def labels(self, body: dict, link_base: str = ""):
         """-> (pdf bytes, file name). body: codes [..] | zone | all, size sheet|shelf|sign, copies, skip.
@@ -320,7 +391,8 @@ def handle_get(h, sub: str, base: str = "") -> bool:
 
 def handle_post(h, sub: str, base: str = "") -> bool:
     """POST <base>/api/...: sign in, every bin, one bin, labels. Returns False when it isn't one of them."""
-    if sub not in ("/api/login", "/api/bins", "/api/bin", "/api/labels"):
+    if sub not in ("/api/login", "/api/bins", "/api/bin", "/api/labels", "/api/check", "/api/inaccurate",
+                   "/api/inaccurate_pdf"):
         return False
     try:
         n = int(h.headers.get("Content-Length") or 0)
@@ -341,6 +413,13 @@ def handle_post(h, sub: str, base: str = "") -> bool:
             reply(h, 200, app.bin_list(body))
         elif sub == "/api/bin":
             reply(h, 200, app.one_bin(body))
+        elif sub == "/api/check":
+            reply(h, 200, app.save_check(body))
+        elif sub == "/api/inaccurate":
+            reply(h, 200, app.inaccurate(body))
+        elif sub == "/api/inaccurate_pdf":
+            data, name = app.inaccurate_pdf(body)
+            reply(h, 200, data, "application/pdf", [("Content-Disposition", f'inline; filename="{name}"')])
         else:
             data, name = app.labels(body, base_url(h, base))
             reply(h, 200, data, "application/pdf", [("Content-Disposition", f'inline; filename="{name}"')])

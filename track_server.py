@@ -633,6 +633,14 @@ STATIC = {"/manifest.json": "application/manifest+json", "/warehouse_manifest.js
           "/favicon.svg": "image/svg+xml", "/driver_sw.js": "text/javascript; charset=utf-8"}
 
 
+def logo_names(page: str, name: str) -> str:
+    """The INVENTRA logo already spells the company's name: the page is marked so that it doesn't print the name a
+    second time next to the logo (class "logo-names" on <body>; each page's CSS hides its header name then)."""
+    if "inventra" in (name or "").lower():
+        page = page.replace("<body>", '<body class="logo-names">', 1)
+    return page
+
+
 def company() -> dict:
     return {"name": os.environ.get("COMPANY_NAME") or "INVENTRA", "phone": os.environ.get("COMPANY_PHONE") or "",
             "email": os.environ.get("COMPANY_EMAIL") or "", "whatsapp": os.environ.get("COMPANY_WHATSAPP") or ""}
@@ -680,7 +688,7 @@ class Handler(BaseHTTPRequestHandler):
         c = company()
         page = PAGE_FILE.read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"]).replace(
             "{{COMPANY_JSON}}", json.dumps(c).replace("</", "<\\/"))
-        self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+        self._send(200, logo_names(page, c["name"]).encode("utf-8"), "text/html; charset=utf-8")
 
     def _ip(self):
         """The visitor's real address for the try limits. The first X-Forwarded-For entry is whatever the visitor
@@ -731,7 +739,7 @@ class Handler(BaseHTTPRequestHandler):
             c = company()
             page = (HERE / "quote_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"]).replace(
                 "{{COMPANY_JSON}}", json.dumps(c).replace("</", "<\\/"))
-            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            return self._send(200, logo_names(page, c["name"]).encode("utf-8"), "text/html; charset=utf-8")
         if path == "/api/quote":
             key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
             if not self.ensure():
@@ -743,7 +751,7 @@ class Handler(BaseHTTPRequestHandler):
         if path.startswith("/s/"):
             c = company()
             page = (HERE / "supplier_page.html").read_text(encoding="utf-8").replace("{{COMPANY}}", c["name"])
-            return self._send(200, page.encode("utf-8"), "text/html; charset=utf-8")
+            return self._send(200, logo_names(page, c["name"]).encode("utf-8"), "text/html; charset=utf-8")
         if path == "/api/supplier":
             key = dict(p.split("=", 1) for p in query.split("&") if "=" in p).get("k", "")
             if not self.ensure():

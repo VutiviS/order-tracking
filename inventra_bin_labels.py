@@ -23,6 +23,8 @@ from reportlab.pdfgen import canvas
 
 PAGE_W, PAGE_H = 210 * mm, 297 * mm
 NAVY = (5 / 255, 43 / 255, 99 / 255)
+GREY = (.25, .27, .32)          # the description
+MUTED = (.45, .47, .53)         # captions
 
 # name: (columns, rows, label width, label height, left margin, top margin, gap across, gap down, per sheet text)
 SIZES = {
@@ -30,6 +32,10 @@ SIZES = {
     "shelf": (2, 4, 99.1 * mm, 67.7 * mm, 4.65 * mm, 13.1 * mm, 2.5 * mm, 0, "8 per A4 sheet (Avery L7165)"),
     "sign": (1, 2, 190 * mm, 136 * mm, 10 * mm, 10 * mm, 0, 5 * mm, "2 big signs per A4 page"),
 }
+
+
+# each label's box: (distance inside the label's edge, line width in points, corner radius)
+BOX = {"sheet": (1.4 * mm, 1.8, 1.8 * mm), "shelf": (1.8 * mm, 2.2, 2.4 * mm), "sign": (3.2 * mm, 4.0, 4.5 * mm)}
 
 
 def per_sheet(size: str) -> int:
@@ -79,57 +85,88 @@ def _qr(c: canvas.Canvas, value: str, x: float, y: float, size: float):
 
 def _barcode(c: canvas.Canvas, value: str, x: float, y: float, width: float, height: float):
     """Code 128 across `width` (bars no thinner than 0.25 mm, so every scanner reads it), centred, with the blank margin
-    of 10 bar widths at each end that scanners need to find where the code starts and stops."""
+    of 10 bar widths at each end that scanners need to find where the code starts and stops. Pure black bars (dark
+    grey ones read less reliably on some scanners)."""
+    from reportlab.lib.colors import black
     probe = code128.Code128(value, barWidth=1, barHeight=height, quiet=0, humanReadable=False)
     bar = max(0.25 * mm, min(1.2 * mm, width / (max(1.0, probe.width) + 20)))
-    bc = code128.Code128(value, barWidth=bar, barHeight=height, quiet=0, humanReadable=False)
+    bc = code128.Code128(value, barWidth=bar, barHeight=height, quiet=0, humanReadable=False, barFillColor=black)
+    c.setFillColorRGB(0, 0, 0)
     bc.drawOn(c, x + max(0.0, (width - bc.width) / 2), y)
 
 
+def _spaced(c: canvas.Canvas, x: float, y: float, text: str, font: str, size: float, spacing: float):
+    """Small capitals with a little air between the letters (a caption)."""
+    t = c.beginText(x, y)
+    t.setFont(font, size)
+    t.setCharSpace(spacing)
+    t.textOut(text)
+    t.setCharSpace(0)                    # (letter spacing stays in force in a PDF until it is set back)
+    c.drawText(t)
+
+
 def _label(c: canvas.Canvas, x: float, y: float, w: float, h: float, b: dict, link_base: str = ""):
+    """One label: the QR code on the left; on the right a 'BIN' caption with the zone as a navy tag, the bin code as
+    large as it fits (navy) and the description; across the bottom the barcode with a one-line caption."""
     code = str(b.get("code") or "").strip()
     pad = h * 0.07
-    gap = h * 0.04
-    bar_h = h * 0.27
-    qr = h - 2 * pad - bar_h - gap                       # the QR code: the square above the barcode, on the left
+    gap = h * 0.045
+    foot = max(4.2, h * 0.048)                           # the caption under the barcode (points)
+    bar_h = h * 0.20
+    qr = h - 2 * pad - bar_h - foot * 1.5 - gap          # the QR code: the square above the barcode, on the left
     top = y + h - pad
     # the QR code opens the bins phone app on this bin (any phone camera); the barcode is the code itself (scanners)
     from inventra_bins import bin_link
     _qr(c, bin_link(link_base, code) if link_base else code, x + pad, top - qr, qr)
-    tx = x + pad + qr + h * 0.05
+    tx = x + pad + qr + h * 0.045
     tw = x + w - pad - tx
-    # a navy rule, then the bin code as large as it fits (no company name on bin labels)
+    text_bottom = top - qr                               # the text stays beside the QR code
+    # 1) the caption row: BIN on the left, the zone as a navy tag on the right
+    cap = max(4.6, h * 0.062)
+    cap_y = top - cap * 0.95
+    c.setFillColorRGB(*MUTED)
+    _spaced(c, tx, cap_y, "BIN", "Helvetica-Bold", cap, cap * 0.22)
+    zone = str(b.get("zone") or "").strip().upper()
+    if zone:
+        room = tw - c.stringWidth("BIN", "Helvetica-Bold", cap) - cap * 2.2
+        zone = _cut(c, zone, "Helvetica-Bold", cap, room - cap * 1.2)
+        if zone:
+            zw = c.stringWidth(zone, "Helvetica-Bold", cap) + cap * 1.2
+            c.setFillColorRGB(*NAVY)
+            c.roundRect(tx + tw - zw, cap_y - cap * 0.38, zw, cap * 1.45, cap * 0.35, stroke=0, fill=1)
+            c.setFillColorRGB(1, 1, 1)
+            c.setFont("Helvetica-Bold", cap)
+            c.drawString(tx + tw - zw + cap * 0.6, cap_y, zone)
+    # 2) the bin code, as large as fits the width and the room between the caption and the description
+    from inventra_bins import real_description          # ('Auto-created for …' is not printed)
+    desc = real_description(b.get("description"))
+    line = max(5.0, h * 0.07)
+    room_h = (cap_y - cap * 0.6) - text_bottom - (line * 1.25 * (2 if desc else 0))
+    big = _fit_font(c, code, "Helvetica-Bold", max(7.0, min(h * 0.34, room_h / 0.9)), tw, smallest=7)
+    code_y = cap_y - cap * 0.6 - big * 0.80
     c.setFillColorRGB(*NAVY)
-    c.rect(tx, top - h * 0.025, tw, h * 0.025, stroke=0, fill=1)
-    big = _fit_font(c, code, "Helvetica-Bold", h * 0.36 / mm * 2.83, tw, smallest=7)
-    c.setFillColorRGB(0, 0, 0)
-    code_y = top - h * 0.025 - big * 1.02
     c.setFont("Helvetica-Bold", big)
     c.drawString(tx, code_y, _cut(c, code, "Helvetica-Bold", big, tw))
-    # zone and description underneath
-    line = max(5.2, h * 0.075 / mm * 2.83)
-    c.setFont("Helvetica", line)
-    c.setFillColorRGB(.22, .22, .28)
-    ly = code_y - line * 1.45
-    zone = str(b.get("zone") or "").strip()
-    if zone:
-        c.drawString(tx, ly, _cut(c, f"Zone {zone}", "Helvetica", line, tw))
-        ly -= line * 1.2
-    from inventra_bins import real_description          # ('Auto-created for …' is not printed)
-    for part in _wrap(c, real_description(b.get("description")), "Helvetica", line, tw, 3):   # as many as fit
-        if ly < top - qr - line * 0.1:
-            break
-        c.drawString(tx, ly, part)
-        ly -= line * 1.2
-    # the barcode across the bottom, and a small hint
-    hint = max(4.4, h * 0.05 / mm * 2.83)
-    _barcode(c, code, x + pad, y + pad + hint * 1.1, w - 2 * pad, bar_h - hint * 1.1)
-    c.setFont("Helvetica", hint)
-    c.setFillColorRGB(.42, .42, .48)
-    c.drawCentredString(x + w / 2, y + pad * 0.6,
-                        _cut(c, ("Scan the QR with a phone camera" if link_base else
-                                 "Scan to see what is in this bin") + f" · {datetime.now():%d %b %Y}",
-                             "Helvetica", hint, w - 2 * pad))
+    # 3) the description underneath, on as many lines as fit beside the QR code
+    if desc:
+        c.setFont("Helvetica", line)
+        c.setFillColorRGB(*GREY)
+        ly = code_y - big * 0.24 - line * 1.15
+        for part in _wrap(c, desc, "Helvetica", line, tw, 3):
+            if ly < text_bottom:
+                break
+            c.drawString(tx, ly, part)
+            ly -= line * 1.2
+    # 4) the barcode across the bottom, and its caption: how to scan on the left, the print date on the right
+    by = y + pad + foot * 1.5
+    _barcode(c, code, x + pad, by, w - 2 * pad, bar_h)
+    c.setFont("Helvetica", foot)
+    c.setFillColorRGB(*MUTED)
+    hint = "Scan with a phone camera" if link_base else "Scan to see what is in this bin"
+    date = f"{datetime.now():%d %b %Y}"
+    c.drawString(x + pad, y + pad * 0.9, _cut(c, hint, "Helvetica", foot, w - 2 * pad - c.stringWidth(date, "Helvetica",
+                                                                                                          foot) - foot))
+    c.drawRightString(x + w - pad, y + pad * 0.9, date)
 
 
 def bin_labels_pdf(path: str, bins: Iterable[dict], size: str = "sheet", skip: int = 0, copies: int = 1,
@@ -149,11 +186,18 @@ def bin_labels_pdf(path: str, bins: Iterable[dict], size: str = "sheet", skip: i
         r, col = divmod(slot % n, cols)
         x = left + col * (lw + gx)
         y = PAGE_H - top - (r + 1) * lh - r * gy
-        if outline or size == "sign":
-            c.setStrokeColorRGB(.78, .78, .8)
-            c.setLineWidth(0.6)
+        if outline:                              # (plain paper: where to cut)
+            c.setStrokeColorRGB(.85, .85, .87)
+            c.setLineWidth(0.4)
             c.rect(x, y, lw, lh, stroke=1, fill=0)
-        _label(c, x, y, lw, lh, b, link_base)
+        # every label in a box of its own (the same on every label: uniform rows on the shelf). The box sits a little
+        # inside the label's edge, so a sheet that feeds slightly off-centre still shows the whole box, and the
+        # label's content is laid out inside the box
+        inset, line, radius = BOX[size]
+        c.setStrokeColorRGB(0, 0, 0)            # pure black: shows clearly on every printer, even when toner is low
+        c.setLineWidth(line)
+        c.roundRect(x + inset, y + inset, lw - 2 * inset, lh - 2 * inset, radius, stroke=1, fill=0)
+        _label(c, x + inset, y + inset, lw - 2 * inset, lh - 2 * inset, b, link_base)
         slot += 1
     c.save()
     return path

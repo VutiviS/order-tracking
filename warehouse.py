@@ -392,6 +392,17 @@ class Warehouse:
                    c["bin"] == (src or inventra_bins.UNALLOCATED))
         if qty > have + 1e-9:
             raise WarehouseError(f"Only {have:g} of {what['description']} are {'in ' + src if src else 'not in a bin yet'}.")
+        # the New production bin: only new production goes in (when a run is recorded), and only units that passed the
+        # quality check come out (the same rule as the desktop)
+        np_bin = inventra_bins.NEW_PROD
+        if bins[to_bin].upper() == np_bin:
+            raise WarehouseError(f"{np_bin} only holds new production: choose a storage bin.")
+        if src and src.upper() == np_bin:
+            ready = (state.get("new_prod") or {}).get("ready", {}).get(sku, 0.0)
+            if qty > ready + 1e-9:
+                raise WarehouseError(f"Only {ready:g} of {what['description']} have passed the quality check and can be "
+                                     "put away." if ready else
+                                     f"{what['description']} hasn't passed its quality check yet: it stays in {np_bin}.")
         note = f"Phone · {u.get('full_name') or u['username']}" + (f" · serial {what.get('serial')}" if what.get("serial") else "")
         stamp = datetime.now().isoformat(timespec="seconds")
         moves = [{"sku": sku, "bin_code": bins[to_bin], "qty": qty, "note": note, "created_at": stamp}]

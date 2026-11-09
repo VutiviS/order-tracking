@@ -44,6 +44,11 @@
   .row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; } .row > div { flex:1; min-width:160px; }
   @media (max-width:600px) { .grid { grid-template-columns:1fr 1fr; } }
 </style>
+<style>
+  /* The INVENTRA logo already reads the company's name (the server adds "logo-names"): the name isn't printed next
+     to it again. On narrow phones only the logo's cube shows, so the name stays there. */
+  @media (min-width:401px) { body.logo-names header.bar .co { display:none; } }
+</style>
 </head>
 <body>
 <header class="bar"><div class="in"><picture><source media="(max-width:400px)" srcset="/favicon.svg"><img src="/logo.svg" alt="" onerror="this.remove()"></picture>

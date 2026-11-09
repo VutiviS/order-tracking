@@ -50,6 +50,103 @@ def allocations_of(run: dict) -> List[dict]:
             for a in (raw or []) if isinstance(a, dict) and a.get("bin") and num(a.get("qty")) > 0]
 
 
+# ---- new production: made in house, checked by quality, then put away ----
+# A production run's good units go into the New production bin, never straight onto a shelf with older stock. Quality
+# checks the run (passed / rejected units); only then can the passed units be put away into a storage bin.
+NEW_PROD = "NEW-PROD"
+NEW_PROD_BIN = {"bin_code": NEW_PROD, "zone": "Production",
+                "description": "New production: waiting for the quality check and put-away", "active": True}
+QA_PENDING, QA_PASSED, QA_PARTIAL, QA_FAILED = "pending", "passed", "partial", "failed"
+QA_COLUMNS = ["qa_status", "qa_passed_qty", "qa_rejected_qty", "qa_by", "qa_at", "qa_notes"]
+QA_LABELS = {QA_PENDING: "Waiting for quality check", QA_PASSED: "Passed", QA_PARTIAL: "Passed in part",
+             QA_FAILED: "Rejected"}
+
+
+def new_prod_qty(run: dict) -> float:
+    """The run's units put in the New production bin."""
+    return sum(a["qty"] for a in allocations_of(run) if a["bin"] == NEW_PROD)
+
+
+def qa_status(run: dict) -> str:
+    """'pending' until quality has checked a run that went into the New production bin; '' for older runs (put
+    straight into bins before the check existed)."""
+    s = str(run.get("qa_status") or "").strip().lower()
+    if s in QA_LABELS:
+        return s
+    return QA_PENDING if new_prod_qty(run) > 0 else ""
+
+
+def quality_result(good: float, passed: float, rejected: float) -> str:
+    if rejected <= 1e-9:
+        return QA_PASSED
+    return QA_FAILED if passed <= 1e-9 else QA_PARTIAL
+
+
+def checked_run(run: dict, passed: float, rejected: float, by: str, notes: str, at: str) -> dict:
+    """The run row to save after the quality check. Rejected units are scrap: they come off the good units (and so off
+    stock) and out of the New production bin; the passed units wait there to be put away."""
+    good = num(run.get("good_qty"))
+    if passed < 0 or rejected < 0:
+        raise ValueError("Units can't be less than 0.")
+    if abs(passed + rejected - good) > 1e-6:
+        raise ValueError(f"Passed plus rejected must be the {good:g} good units the run made.")
+    if rejected > 1e-9 and not str(notes or "").strip():
+        raise ValueError("Say why units were rejected.")
+    allocs = allocations_of(run)
+    left = rejected
+    for a in allocs:                                   # the rejects leave the New production bin
+        if a["bin"] == NEW_PROD and left > 0:
+            take = min(a["qty"], left)
+            a["qty"] -= take
+            left -= take
+    return {"run_id": run["run_id"], "good_qty": round(good - rejected, 4),
+            "scrap_qty": round(num(run.get("scrap_qty")) + rejected, 4),
+            "allocations": [{"bin": a["bin"], "qty": round(a["qty"], 4)} for a in allocs if a["qty"] > 1e-9],
+            "qa_status": quality_result(good, passed, rejected), "qa_passed_qty": round(passed, 4),
+            "qa_rejected_qty": round(rejected, 4), "qa_by": by or None, "qa_at": at,
+            "qa_notes": str(notes or "").strip() or None}
+
+
+def new_production(cont: List[dict], runs: List[dict]) -> dict:
+    """What is in the New production bin and what may be put away.
+    Returns {"runs": [run rows, newest first, with _status, _left (units still in the bin), _label],
+             "awaiting": {sku: units waiting for the quality check},
+             "ready": {sku: units passed and waiting to be put away}}.
+    Units not yet checked are counted first: whatever left the bin (put away, dispatched) can only have been checked
+    units, so unchecked units are never offered for put-away."""
+    in_bin: Dict[str, float] = {}
+    for c in cont:
+        if c["bin"] == NEW_PROD:
+            in_bin[c["sku"]] = in_bin.get(c["sku"], 0.0) + c["qty"]
+    mine = [r for r in runs if r.get("product_sku") and (new_prod_qty(r) > 0 or qa_status(r) == QA_FAILED
+                                                         and r.get("qa_rejected_qty"))]
+    mine.sort(key=lambda r: (str(r.get("run_date") or "")[:10], str(r.get("run_id") or "")), reverse=True)
+    left = dict(in_bin)
+    here: Dict[str, float] = {}
+    for first in (True, False):                     # unchecked runs first, then the checked ones (newest first)
+        for r in mine:
+            if (qa_status(r) == QA_PENDING) == first:
+                sku = r["product_sku"]
+                here[r["run_id"]] = q = min(new_prod_qty(r), max(0.0, left.get(sku, 0.0)))
+                left[sku] = left.get(sku, 0.0) - q
+    awaiting: Dict[str, float] = {}
+    ready: Dict[str, float] = {}
+    out = []
+    for r in mine:
+        sku, status, q = r["product_sku"], qa_status(r), here.get(r["run_id"], 0.0)
+        if status == QA_PENDING:
+            awaiting[sku] = awaiting.get(sku, 0.0) + q
+            label = "Waiting for quality check"
+        elif q > 1e-9:
+            ready[sku] = ready.get(sku, 0.0) + q
+            label = "Passed · put away" if status == QA_PASSED else "Passed in part · put away"
+        else:
+            label = "Rejected" if status == QA_FAILED else "Put away"
+        out.append(dict(r, _status=status, _left=q, _label=label))
+    return {"runs": out, "awaiting": {k: v for k, v in awaiting.items() if v > 1e-9},
+            "ready": {k: v for k, v in ready.items() if v > 1e-9}}
+
+
 def receipts_into_bins(stock_items: List[dict]) -> List[dict]:
     """Deliveries received straight into a bin (stock_items with a bin code): {sku, bin, qty, date, invoice, supplier}.
     (Receive used to record the bin only on the delivery, so that stock showed as 'not in a bin' in Stock Control.)"""
@@ -162,9 +259,18 @@ def build_state(bins: List[dict], runs: List[dict], ledger: List[dict], stock_qt
                 names: Dict[str, str], receipts: List[dict] = ()) -> dict:
     """Everything the bin screens need."""
     cont = contents(runs, ledger, stock_qty, skus=names.keys(), receipts=receipts)
+    if not any(str(b.get("bin_code") or "").upper() == NEW_PROD for b in bins):
+        bins = list(bins) + [dict(NEW_PROD_BIN)]          # (made in the database with the first run that uses it)
     return {"bins": bins, "contents": cont, "names": names,
             "unallocated": {c["sku"]: c["qty"] for c in cont if c["bin"] == UNALLOCATED},
-            "active": sorted((b for b in bins if b.get("active") is not False), key=lambda b: b.get("bin_code") or "")}
+            "active": sorted((b for b in bins if b.get("active") is not False), key=lambda b: b.get("bin_code") or ""),
+            "new_prod": new_production(cont, runs)}
+
+
+def storage_bins(state: dict) -> List[dict]:
+    """The bins stock may be put into: every active bin except the New production bin (new units only go there when a
+    run is recorded, so they are never mixed with older stock)."""
+    return [b for b in state["active"] if b.get("bin_code") != NEW_PROD]
 
 
 def units_in(state: dict, code: str) -> float:
@@ -194,7 +300,7 @@ class BinRepoMixin:
         return self._safe_rows(LEDGER_TABLE)
 
     def bin_runs(self):
-        return self._safe_rows(RUNS_TABLE, "run_id, run_date, product_sku, allocations")
+        return self._safe_rows(RUNS_TABLE)          # (all columns: the quality check's are there once the update ran)
 
     def bin_receipts(self):
         return self._safe_rows(RECEIPTS_TABLE, "sku, quantity, bin_code, received_date, created_at, product_type, "
@@ -219,3 +325,38 @@ class BinRepoMixin:
         """rows: [{"sku", "bin_code", "qty" (+ in / − out), "note"}]"""
         if rows:
             self._t(LEDGER_TABLE).insert(rows).execute()
+
+    def ensure_new_prod_bin(self):
+        """The New production bin, made the first time a run needs it."""
+        try:
+            got = self._t(BINS_TABLE).select("bin_code").eq("bin_code", NEW_PROD).execute().data
+        except Exception as e:
+            if _is_missing(e):
+                return
+            raise
+        if not got:
+            self.save_bin(dict(NEW_PROD_BIN))
+
+    def record_quality(self, run: dict, passed: float, rejected: float, by: str, notes: str):
+        """Save the quality check of a run (checked_run: the rejected units become scrap)."""
+        from datetime import datetime
+        gone = self.missing_columns(RUNS_TABLE, QA_COLUMNS) if hasattr(self, "missing_columns") else []
+        if gone:
+            raise RuntimeError("The database can't keep quality checks yet: click Fix database access (Home > "
+                               "Settings), then try again.")
+        row = checked_run(run, passed, rejected, by, notes, datetime.now().isoformat(timespec="seconds"))
+        row["updated_at"] = row["qa_at"]
+        self._t(RUNS_TABLE).update({k: v for k, v in row.items() if k != "run_id"}).eq("run_id", row["run_id"]).execute()
+
+    def put_away(self, items: List[dict], code: str, new_bin: dict = None):
+        """Move checked new production from the New production bin into a storage bin.
+        items: [{"sku", "qty"}]; new_bin: a bin to create first (Stock Control only)."""
+        if new_bin:
+            self.save_bin(new_bin)
+        moves = []
+        for it in items:
+            q = round(num(it["qty"]), 4)
+            if q > 0:
+                moves += [{"sku": it["sku"], "bin_code": NEW_PROD, "qty": -q, "note": f"Put away to {code} (checked new production)"},
+                          {"sku": it["sku"], "bin_code": code, "qty": q, "note": "Put away from new production (passed quality check)"}]
+        self.add_bin_moves(moves)

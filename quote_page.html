@@ -41,6 +41,11 @@
   .pill { display:inline-block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; padding:3px 7px; background:var(--soft); }
   .hidden { display:none !important; }
 </style>
+<style>
+  /* The INVENTRA logo already reads the company's name (the server adds "logo-names"): the name isn't printed next
+     to it again. On narrow phones only the logo's cube shows, so the name stays there. */
+  @media (min-width:401px) { body.logo-names header.bar .co { display:none; } }
+</style>
 </head>
 <body>
 <header class="bar"><div class="in"><picture><source media="(max-width:400px)" srcset="/favicon.svg"><img src="/logo.svg" alt="" onerror="this.remove()"></picture>
